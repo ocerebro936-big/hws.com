@@ -23,6 +23,7 @@ import adRoutes from "./src/server/routes/ads";
 import designRoutes from "./src/server/routes/design";
 import userRoutes from "./src/server/routes/users";
 import storeRoutes from "./src/server/routes/stores";
+import paymentRoutes from "./src/server/routes/payments";
 import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
 
@@ -1241,6 +1242,7 @@ async function startServer() {
   app.use("/api/v1/design", designRoutes);
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/stores", storeRoutes);
+  app.use("/api/v1/payments", paymentRoutes);
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)

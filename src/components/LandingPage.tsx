@@ -89,13 +89,13 @@ export default function LandingPage() {
             <div className="flex flex-wrap justify-center gap-3">
               <button
                 onClick={() => setShowRegister(true)}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-indigo-600/25 cursor-pointer"
+                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/30 flex items-center gap-2 cursor-pointer"
               >
-                Criar Loja Agora
+                🏪 Alugar Loja
               </button>
               <a
                 href="#planos"
-                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm rounded-xl transition-all border border-slate-700/50 cursor-pointer"
+                className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm rounded-xl transition-all border border-slate-700/50 cursor-pointer"
               >
                 Ver Planos
               </a>
@@ -237,9 +237,9 @@ export default function LandingPage() {
               </p>
               <button
                 onClick={() => setShowRegister(true)}
-                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-indigo-600/25 cursor-pointer"
+                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/25 flex items-center gap-2 mx-auto cursor-pointer"
               >
-                Criar Loja Grátis
+                🏪 Alugar Loja Agora
               </button>
             </div>
           </div>
