@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LicenseStatus {
+  PAID
+  SUSPENDED
+}
+
+enum PaymentScope {
+  NACIONAL
+  INTERNACIONAL
+}
+
+model Tenant {
+  id                 String        @id @default(uuid())
+  host               String        @unique
+  customDomain       String?       @unique
+  name               String
+  plan               String        @default("starter")
+  status             LicenseStatus @default(PAID)
+  theme              String        @default("luxury")
+  accumulatedBalance Float         @default(0.0)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  products           Product[]
+}
+
+model Product {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  costPrice       Float
+  finalPrice      Float
+  isDropshipping  Boolean  @default(false)
+  sourceHost      String?
+  sourceProductId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Payment {
+  id                  String        @id @default(uuid())
+  tenantId            String
+  orderId             String
+  amount              Float
+  gateway             String
+  scope               PaymentScope
+  status              String        @default("PENDING")
+  reference           String        @unique
+  mpesaTransactionId  String?
+  stripePaymentIntent String?
+  metadata            Json?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model PendingOrder {
+  id              String        @id @default(uuid())
+  orderId         String        @unique
+  tenantHost      String
+  tenantName      String
+  totalAmount     Float
+  metodoEscolhido String
+  scope           PaymentScope
+  clientPhone     String?
+  gateway         String?
+  reference       String?
+  status          String        @default("PENDING")
+  expiresAt       DateTime
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model DropshippingLink {
+  id              String   @id @default(uuid())
+  tenantHost      String
+  sourceHost      String
+  sourceProductId String
+  targetProductId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantHost, sourceHost, sourceProductId])
+}
+
+model DropshippingOrder {
+  id             String   @id @default(uuid())
+  orderId        String   @unique
+  originalAmount Float
+  supplierAmount Float
+  hwsFee         Float
+  resellerAmount Float
+  supplierHost   String?
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

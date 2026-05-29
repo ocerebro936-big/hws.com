@@ -15,6 +15,7 @@ import { database, financeiroCorporativo, registrarMockDns, dropshippingDB, pend
 import type { Product, Tenant, DropshippingLink } from "./src/server/config/database";
 import webhookRoutes from "./src/server/routes/webhooks";
 import checkoutRoutes from "./src/server/routes/checkout";
+import { initDatabase, closeDb } from "./src/server/db";
 
 dotenv.config();
 
@@ -1177,12 +1178,16 @@ app.get("/health", (_req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     tenants: Object.keys(database).length,
-    version: "1.0.0"
+    database: process.env.DATABASE_URL ? "postgresql" : "in-memory",
+    version: "2.0.0"
   });
 });
 
 // Setup Vite & static assets rendering
 async function startServer() {
+  // Initialize database (Prisma PostgreSQL in production, in-memory fallback)
+  await initDatabase();
+
   // Mount modular routes (ANTES do Vite middleware)
   app.use("/api/v1/hws/checkout", checkoutRoutes);
   app.use("/api/v1/hws/webhooks", webhookRoutes);
@@ -1215,8 +1220,9 @@ async function startServer() {
   });
 
   // Graceful Shutdown
-  const shutdown = (signal: string) => {
+  const shutdown = async (signal: string) => {
     console.log(`\n⚠️  [HWS] Sinal ${signal} recebido. Encerrando conexões...`);
+    await closeDb();
     server.close(() => {
       console.log(`✅ [HWS] Servidor encerrado com segurança.`);
       process.exit(0);
