@@ -14,6 +14,72 @@ interface ControlSpaceProps {
 
 const ADMIN_EMAIL = "ocerebro936@gmail.com";
 
+interface CryptoPrice {
+  price: number;
+  change24h: number;
+}
+
+function CryptoPricesSection({ staticMode }: { staticMode: boolean }) {
+  const [crypto, setCrypto] = useState<Record<string, CryptoPrice> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (staticMode) {
+      setCrypto({
+        bitcoin: { price: 67845.12, change24h: 2.34 },
+        ethereum: { price: 3456.78, change24h: -1.23 },
+        tether: { price: 1.0, change24h: 0.01 },
+        "usd-coin": { price: 1.0, change24h: 0.0 },
+        solana: { price: 145.23, change24h: 5.67 },
+        polygon: { price: 0.89, change24h: -0.45 },
+      });
+      setLoading(false);
+      return;
+    }
+    fetch("/api/v1/crypto/prices")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setCrypto(d.coins); setLoading(false); })
+      .catch(() => { setError("Indisponível"); setLoading(false); });
+  }, [staticMode]);
+
+  const ICONS: Record<string, string> = {
+    bitcoin: "₿", ethereum: "♦", tether: "₮", "usd-coin": "₮", solana: "◎", polygon: "⬡",
+  };
+
+  if (error) return null;
+
+  return (
+    <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6 mt-6">
+      <h2 className="text-sm md:text-base font-bold text-white mb-4 flex items-center gap-2">
+        💰 Cotações Cripto (CoinGecko)
+      </h2>
+      {loading ? (
+        <div className="text-xs text-slate-500 font-mono">A carregar...</div>
+      ) : crypto ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {(Object.entries(crypto) as [string, { price: number; change24h: number }][]).map(([id, c]) => (
+            <div key={id} className="bg-[#0b0f19] border border-[#1e293b] rounded-lg p-3">
+              <div className="text-xs font-mono text-slate-500 mb-1">
+                {ICONS[id] || "○"} {id.charAt(0).toUpperCase() + id.slice(1)}
+              </div>
+              <div className="text-sm font-bold font-mono text-white mb-1">
+                ${c.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className={`text-[10px] font-mono ${c.change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {c.change24h >= 0 ? "▲" : "▼"} {Math.abs(c.change24h).toFixed(2)}%
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-3 text-[10px] text-slate-600 font-mono">
+        Dados: CoinGecko API · Actualizado a cada 60s · {staticMode ? "Mock (estático)" : "Tempo real"}
+      </div>
+    </section>
+  );
+}
+
 export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, onAddLog, staticMode, onClose }: ControlSpaceProps) {
   const [activeTab, setActiveTab] = useState<"feed" | "support" | "billing" | "design">("feed");
   const [chatMessages, setChatMessages] = useState<{ role: "bot" | "user"; text: string }[]>([
@@ -338,6 +404,9 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
               )}
             </section>
           )}
+
+          {/* 💰 Cotações Cripto */}
+          <CryptoPricesSection staticMode={staticMode} />
 
           {/* 📊 Métricas do Motor de Anúncios */}
           <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">
