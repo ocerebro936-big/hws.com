@@ -286,6 +286,7 @@ export default function App() {
             onAddLog={addLog}
             onRefreshTenants={fetchAllTenants}
             onOpenControlSpace={toggleControlSpace}
+            staticMode={staticMode}
           />
         ) : currentTenant.licenseStatus === 'SUSPENDED' ? (
           /* SUSPENDED LICENSE WARNING SCREEN (Bluewhite Lda Compliance) */

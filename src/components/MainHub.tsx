@@ -29,9 +29,12 @@ import {
   RefreshCw,
   BarChart3,
   AlertOctagon,
-  Search
+  Search,
+  User2
 } from 'lucide-react';
 import { Tenant, Product } from '../types';
+import WelcomeBanner from './WelcomeBanner';
+import UserPanel from './UserPanel';
 
 interface MainHubProps {
   tenants: Tenant[];
@@ -50,8 +53,9 @@ export default function MainHub({
   onRenewLicense,
   onAddLog,
   onRefreshTenants,
-  onOpenControlSpace
-}: MainHubProps) {
+  onOpenControlSpace,
+  staticMode
+}: MainHubProps & { staticMode?: boolean }) {
   // Navigation tabs or filters
   const [searchQuery, setSearchQuery] = useState('');
   const [themeFilter, setThemeFilter] = useState<string>('all');
@@ -162,6 +166,9 @@ export default function MainHub({
       setHubDomainErr('Erro nas comunicações do gateway.');
     }
   };
+
+  // User Panel
+  const [showUserPanel, setShowUserPanel] = useState(false);
 
   // Form states for Renting Space
   const [storeName, setStoreName] = useState('');
@@ -300,15 +307,30 @@ export default function MainHub({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20">
-      
-      {/* Immersive Landing Hero */}
-      <div className="bg-slate-950 text-white relative overflow-hidden py-24 px-4 border-b border-slate-900">
-        <div className="absolute inset-0 bg-radial-gradient from-slate-900 to-slate-950 opacity-90"></div>
-        
-        {/* Abstract design elements */}
+
+      {/* Welcome Banner for first-time visitors */}
+      <WelcomeBanner />
+
+      {/* Immersive Landing Hero with animated background */}
+      <div className="relative overflow-hidden py-24 px-4 border-b border-slate-900"
+        style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 30%, #0f172a 60%, #020617 100%)"
+        }}
+      >
+        {/* Animated gradient orbs */}
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[120px] animate-pulse pointer-events-none" style={{ animationDuration: "6s" }}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[100px] animate-pulse pointer-events-none" style={{ animationDuration: "8s", animationDelay: "1s" }}></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none"></div>
         <div className="absolute -top-10 -right-10 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"></div>
         <div className="absolute -bottom-10 -left-10 w-80 h-80 rounded-full bg-emerald-500/5 blur-3xl"></div>
+
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234f46e5' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundSize: "60px 60px"
+          }}
+        ></div>
 
         <div className="max-w-5xl mx-auto relative z-10 text-center space-y-6">
           <div className="inline-flex items-center gap-1.5 bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs px-3.5 py-1.5 rounded-full font-semibold tracking-wide">
@@ -331,6 +353,13 @@ export default function MainHub({
             >
               <PlusCircle size={18} />
               <span>Contratar Loja (Alugar Espaço)</span>
+            </button>
+            <button
+              onClick={() => setShowUserPanel(true)}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.25)] flex items-center gap-2 transition-all hover:scale-[1.02] cursor-pointer"
+            >
+              <User2 size={18} />
+              <span>Painel do Utilizador</span>
             </button>
             <a 
               href="#corredores"
@@ -1021,6 +1050,21 @@ export default function MainHub({
 
         </div>
       </div>
+
+      {/* User Panel Modal */}
+      {showUserPanel && (
+        <div className="fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 overflow-y-auto backdrop-blur-sm">
+          <div className="w-full max-w-lg relative">
+            <button
+              onClick={() => setShowUserPanel(false)}
+              className="absolute -top-2 -right-2 text-slate-400 hover:text-white bg-[#131a26] border border-[#1e293b] rounded-full p-1.5 z-10 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+            <UserPanel staticMode={staticMode ?? false} />
+          </div>
+        </div>
+      )}
 
       {/* Contract/Renting Virtual Space Dialog Modal */}
       {showRentingModal && (
