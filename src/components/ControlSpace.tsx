@@ -44,22 +44,37 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutResult, setPayoutResult] = useState<{ success: boolean; message: string; tx?: string } | null>(null);
   const [adRevenue, setAdRevenue] = useState(32450);
+  const [adClicks, setAdClicks] = useState(0);
+  const [adImpressions, setAdImpressions] = useState(0);
+  const [adMath, setAdMath] = useState<any>(null);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [financeiro, setFinanceiro] = useState<any>(null);
 
-  const isAdmin = true; // console mestre do admin
+  const isAdmin = true;
 
   useEffect(() => {
-    if (!staticMode) {
-      fetch("/api/v1/hws/admin/financeiro")
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.success) {
-            setFinanceiro(data.financeiro);
-            setAdRevenue(data.financeiro.adRevenue || 0);
-          }
-        })
-        .catch(() => {});
+    if (staticMode) {
+      setAdRevenue(32450);
+      setAdClicks(1850);
+      setAdImpressions(425000);
+      return;
     }
+    Promise.all([
+      fetch("/api/v1/hws/admin/financeiro").then((r) => r.json()),
+      fetch("/api/v1/ads/math").then((r) => r.json()),
+      fetch("/api/v1/ads/campaigns").then((r) => r.json()),
+    ])
+      .then(([fin, math, camps]) => {
+        if (fin.success) {
+          setFinanceiro(fin.financeiro);
+          setAdRevenue(fin.financeiro.adRevenue || 0);
+          setAdClicks(fin.financeiro.adClicks || 0);
+          setAdImpressions(fin.financeiro.adImpressions || 0);
+        }
+        if (math.success) setAdMath(math);
+        if (camps.success) setCampaigns(camps.campaigns);
+      })
+      .catch(() => {});
   }, [staticMode]);
 
   const handlePayout = useCallback(async () => {
@@ -330,6 +345,75 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
               )}
             </section>
           )}
+
+          {/* 📊 Métricas do Motor de Anúncios */}
+          <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">
+            <h2 className="text-sm md:text-base font-bold text-white mb-4 flex items-center gap-2">
+              📊 Motor de Anúncios — Faturação Matemática
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-[#0b0f19] border border-[#1e293b] p-3 rounded-lg">
+                <span className="text-[10px] text-slate-500 block mb-0.5 font-mono">Impressões</span>
+                <span className="text-base font-bold font-mono text-[#38bdf8]">{adImpressions.toLocaleString("pt-PT")}</span>
+              </div>
+              <div className="bg-[#0b0f19] border border-[#1e293b] p-3 rounded-lg">
+                <span className="text-[10px] text-slate-500 block mb-0.5 font-mono">Cliques</span>
+                <span className="text-base font-bold font-mono text-emerald-400">{adClicks.toLocaleString("pt-PT")}</span>
+              </div>
+              <div className="bg-[#0b0f19] border border-[#1e293b] p-3 rounded-lg">
+                <span className="text-[10px] text-slate-500 block mb-0.5 font-mono">RPM (1.000 imp.)</span>
+                <span className="text-base font-bold font-mono text-amber-400">12,50 MT</span>
+              </div>
+              <div className="bg-[#0b0f19] border border-[#1e293b] p-3 rounded-lg">
+                <span className="text-[10px] text-slate-500 block mb-0.5 font-mono">CPC Médio</span>
+                <span className="text-base font-bold font-mono text-amber-400">0,75 MT</span>
+              </div>
+            </div>
+
+            <div className="bg-[#0b0f19] border border-[#4f46e5]/30 rounded-lg p-4 mb-4">
+              <div className="text-[10px] font-mono text-slate-500 mb-2">
+                L_admin = Σ(I × RPM) + Σ(C × CPC) + Σ(V × Comissão)
+              </div>
+              {adMath ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-500">Impressões × RPM</span>
+                    <p className="text-sm font-bold text-[#38bdf8] font-mono">{adMath.variables.rpmRevenue.toLocaleString("pt-PT")},00 MT</p>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-500">Cliques × CPC</span>
+                    <p className="text-sm font-bold text-emerald-400 font-mono">{adMath.variables.cpcRevenue.toLocaleString("pt-PT")},00 MT</p>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-500">Comissões HWS</span>
+                    <p className="text-sm font-bold text-amber-400 font-mono">{adMath.variables.comissões.toLocaleString("pt-PT")},00 MT</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 font-mono">L_admin = {(adImpressions / 1000 * 12.5 + adClicks * 0.75).toLocaleString("pt-PT")},00 MT</p>
+              )}
+            </div>
+
+            {campaigns.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 font-mono">Campanhas Activas</h3>
+                <div className="space-y-2">
+                  {campaigns.map((c: any) => (
+                    <div key={c.id} className="flex items-center gap-3 bg-[#0b0f19] border border-[#1e293b] rounded-lg p-3">
+                      <img src={c.imageUrl} alt="" className="w-12 h-8 rounded object-cover bg-slate-800" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate">{c.clientName}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">{c.placement} · {c.clicks} cliques · {Math.round(c.spent / c.budget * 100)}% orçamento</p>
+                      </div>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${c.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                        {c.isActive ? "ACTIVO" : "INACTIVO"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
 
           {/* Tenant Billing View */}
           <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">

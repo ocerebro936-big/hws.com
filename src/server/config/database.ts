@@ -55,3 +55,18 @@ export interface PendingOrder {
   metadata: Record<string, string>;
   createdAt: string;
 }
+
+export interface AdCampaign {
+  id: string;
+  clientName: string;
+  targetUrl: string;
+  imageUrl: string;
+  placement: "FEED_TOP" | "STORE_SIDEBAR" | "FEED_GRID";
+  costPerClick: number;
+  budget: number;
+  spent: number;
+  clicks: number;
+  impressions: number;
+  isActive: boolean;
+  createdAt: string;
+}
