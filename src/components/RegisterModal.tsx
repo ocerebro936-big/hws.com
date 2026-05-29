@@ -2,9 +2,11 @@ import React, { useState } from "react";
 
 interface RegisterModalProps {
   onClose: () => void;
+  onSuccess?: (storeId: string) => void;
+  planId?: string;
 }
 
-export default function RegisterModal({ onClose }: RegisterModalProps) {
+export default function RegisterModal({ onClose, onSuccess, planId }: RegisterModalProps) {
   const [form, setForm] = useState({ name: "", email: "", password: "", storeName: "", hostSubdomain: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +30,8 @@ export default function RegisterModal({ onClose }: RegisterModalProps) {
       const data = await res.json();
       if (data.success) {
         setSuccess(true);
+        const storeId = data.tenant?.id || form.hostSubdomain || "nova-loja";
+        onSuccess?.(storeId);
       } else {
         setError(data.error || "Erro ao registar.");
       }

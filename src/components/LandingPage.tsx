@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import RegisterModal from "./RegisterModal";
+import PaymentClient from "./PaymentClient";
 
 const PLANS = [
   {
@@ -97,6 +98,24 @@ const DOMINIOS = [
 
 export default function LandingPage() {
   const [showRegister, setShowRegister] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [paymentTenant, setPaymentTenant] = useState<{ id: string; name: string } | null>(null);
+
+  function handlePlanClick(planId: string) {
+    setSelectedPlan(planId);
+    setShowRegister(true);
+  }
+
+  function handleRegisterSuccess(storeId: string) {
+    setShowRegister(false);
+    const planName = PLANS.find((p) => p.id === selectedPlan)?.nome || "Loja";
+    setPaymentTenant({ id: storeId, name: planName });
+  }
+
+  function handlePaymentClose() {
+    setPaymentTenant(null);
+    setSelectedPlan(null);
+  }
 
   return (
     <>
@@ -121,7 +140,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <button
-                onClick={() => setShowRegister(true)}
+                onClick={() => handlePlanClick("HWS_LOJA_RENTAL")}
                 className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/30 flex items-center gap-2 cursor-pointer"
               >
                 🏪 Alugar Loja
@@ -220,7 +239,7 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   <button
-                    onClick={() => setShowRegister(true)}
+                    onClick={() => handlePlanClick(plan.id)}
                     className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       plan.destaque
                         ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg"
@@ -271,7 +290,7 @@ export default function LandingPage() {
                 Crie a sua loja em menos de 2 minutos. Sem conhecimento técnico necessário.
               </p>
               <button
-                onClick={() => setShowRegister(true)}
+                onClick={() => handlePlanClick("HWS_LOJA_RENTAL")}
                 className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/25 flex items-center gap-2 mx-auto cursor-pointer"
               >
                 🏪 Alugar Loja Agora
@@ -294,7 +313,19 @@ export default function LandingPage() {
       </div>
 
       {showRegister && (
-        <RegisterModal onClose={() => setShowRegister(false)} />
+        <RegisterModal
+          onClose={() => { setShowRegister(false); setSelectedPlan(null); }}
+          onSuccess={handleRegisterSuccess}
+          planId={selectedPlan || undefined}
+        />
+      )}
+      {paymentTenant && selectedPlan && (
+        <PaymentClient
+          planId={selectedPlan}
+          tenantId={paymentTenant.id}
+          tenantName={paymentTenant.name}
+          onClose={handlePaymentClose}
+        />
       )}
     </>
   );

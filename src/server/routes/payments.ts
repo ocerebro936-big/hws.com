@@ -1,99 +1,188 @@
-import { Router, Request, Response } from "express";
+import express, { Router, Request, Response } from "express";
+import {
+  verifyCryptoPayment,
+  createCheckoutSession,
+  verifyStripeSession,
+  handleStripeWebhook,
+  activateProperty,
+  generateAdsTxt,
+} from "../services/paymentEngine";
 import { database } from "../state";
 
 const router = Router();
 
-/* POST /api/v1/payments/validate — valida pagamento e ativa loja/domínio */
-router.post("/validate", (req: Request, res: Response) => {
-  const { gateway, reference, amount, tenantId, type, email } = req.body;
+/* ───────── ROTA 1: Verificar Pagamento Web3 (MetaMask/Polygon) ───────── */
+router.post("/verify-crypto", async (req: Request, res: Response) => {
+  const { txHash, storeId, planId, wallet, clientName, clientEmail, clientNuit } = req.body;
 
-  if (!gateway || !reference || !amount) {
-    res.status(400).json({ success: false, error: "gateway, reference e amount são obrigatórios." });
+  if (!txHash || !storeId || !planId) {
+    res.status(400).json({ success: false, error: "txHash, storeId e planId são obrigatórios." });
     return;
   }
 
-  /* Simular validação junto ao gateway */
-  const validGateways = ["stripe", "mpesa", "emola", "paypal"];
-  if (!validGateways.includes(gateway.toLowerCase())) {
-    res.status(400).json({ success: false, error: `Gateway não suportado: ${gateway}. Use: stripe, mpesa, emola, paypal.` });
-    return;
-  }
+  try {
+    const onChain = await verifyCryptoPayment(txHash, wallet || "");
 
-  const paymentConfirmed = true;
-
-  if (!paymentConfirmed) {
-    res.status(402).json({ success: false, error: "Pagamento não confirmado pelo gateway." });
-    return;
-  }
-
-  const results: any[] = [];
-
-  /* Ativar loja se tenantId fornecido */
-  if (tenantId) {
-    const tenant = Object.values(database).find((t: any) => t.id === tenantId || t.domain === tenantId);
-    if (tenant) {
-      const t = tenant as any;
-      t.licenseStatus = "PAID";
-      const nextDate = new Date();
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      t.nextPaymentDate = nextDate.toISOString().split("T")[0];
-      results.push({ type: "store", id: tenantId, status: "activated", nextPayment: t.nextPaymentDate });
+    if (!onChain.confirmed) {
+      res.status(402).json({ success: false, error: "Transação não confirmada na blockchain Polygon. Aguarde alguns segundos e tente novamente." });
+      return;
     }
+
+    const planPrices: Record<string, number> = {
+      HWS_BANCA: 500,
+      HWS_LOJA_RENTAL: 3500,
+      HWS_LOJA_SALE: 150000,
+      HWS_CORPORATE: 12000,
+    };
+
+    const result = activateProperty({
+      tenantId: storeId,
+      planId,
+      paymentMethod: "METAMASK",
+      txHash,
+      amount: planPrices[planId] || 3500,
+      clientName,
+      clientEmail,
+      clientNuit,
+    });
+
+    if (!result.success) {
+      res.status(500).json({ success: false, error: result.error || "Falha na ativação." });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Pagamento Cripto validado! Bloco #${onChain.blockNumber}. ${result.message}`,
+      tenant: result.tenant,
+      receiptId: result.receiptId,
+      receiptBase64: result.receipt ? result.receipt.toString("base64") : undefined,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Erro interno no validador cripto.", details: err.message });
+  }
+});
+
+/* ───────── ROTA 2: Criar Sessão Checkout Stripe (Cartão) ───────── */
+router.post("/create-checkout-session", async (req: Request, res: Response) => {
+  const { planId, tenantId } = req.body;
+
+  if (!planId || !tenantId) {
+    res.status(400).json({ success: false, error: "planId e tenantId são obrigatórios." });
+    return;
   }
 
-  /* Se for pagamento de domínio */
-  if (type === "domain" && email) {
-    results.push({ type: "domain", email, status: "registered", domain: req.body.domainName || "pendente" });
+  const appUrl = req.headers.origin || req.headers.referer || "http://localhost:3000";
+
+  const session = await createCheckoutSession(planId, tenantId, appUrl);
+  if (!session) {
+    res.status(500).json({ success: false, error: "Falha ao gerar sessão de checkout Stripe." });
+    return;
   }
 
+  res.json({ success: true, url: session.url });
+});
+
+/* ───────── ROTA 3: Verificar Sessão Stripe (callback pós-pagamento) ───────── */
+router.post("/verify-card", async (req: Request, res: Response) => {
+  const { sessionId } = req.body;
+
+  if (!sessionId) {
+    res.status(400).json({ success: false, error: "sessionId é obrigatório." });
+    return;
+  }
+
+  try {
+    const { paid, metadata } = await verifyStripeSession(sessionId);
+
+    if (!paid) {
+      res.status(402).json({ success: false, error: "Pagamento ainda não confirmado pelo Stripe." });
+      return;
+    }
+
+    const { planId, tenantId } = metadata;
+    if (planId && tenantId) {
+      const planPrices: Record<string, number> = {
+        HWS_BANCA: 500,
+        HWS_LOJA_RENTAL: 3500,
+        HWS_LOJA_SALE: 150000,
+        HWS_CORPORATE: 12000,
+      };
+
+      const result = activateProperty({
+        tenantId,
+        planId,
+        paymentMethod: "CREDIT_CARD",
+        gatewayRef: sessionId,
+        amount: planPrices[planId] || 3500,
+      });
+
+      if (!result.success) {
+        res.status(500).json({ success: false, error: result.error || "Falha na ativação." });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: `✅ Pagamento por Cartão validado! ${result.message}`,
+        tenant: result.tenant,
+        receiptId: result.receiptId,
+      });
+      return;
+    }
+
+    res.json({ success: true, message: "Pagamento verificado com sucesso." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Erro ao verificar sessão Stripe.", details: err.message });
+  }
+});
+
+/* ───────── ROTA 4: Webhook Bancário (Stripe) ───────── */
+router.post("/webhook-bancario", express.raw({ type: "application/json" }), async (req: Request, res: Response) => {
+  let event: any;
+  try {
+    event = JSON.parse(req.body.toString());
+  } catch {
+    res.status(400).json({ received: false, error: "Payload inválido." });
+    return;
+  }
+
+  try {
+    await handleStripeWebhook(event);
+    res.json({ received: true });
+  } catch (err: any) {
+    res.status(500).json({ received: false, error: err.message });
+  }
+});
+
+/* ───────── ROTA 5: ads.txt para Google AdSense ───────── */
+router.get("/ads/:subdomain/ads.txt", (req: Request, res: Response) => {
+  const { subdomain } = req.params;
+  const adsTxt = generateAdsTxt(subdomain);
+
+  if (!adsTxt) {
+    res.status(404).type("text/plain").send("Espaço comercial inativo ou inexistente.");
+    return;
+  }
+
+  res.type("text/plain").send(adsTxt);
+});
+
+/* ───────── ROTA 6: Listar planos e preços ───────── */
+router.get("/plans", (_req: Request, res: Response) => {
   res.json({
     success: true,
-    message: `Pagamento de ${amount} MT via ${gateway} validado com sucesso. Referência: ${reference}`,
-    results,
+    plans: [
+      { id: "HWS_BANCA", name: "Banca do Mercado", priceMT: 500, type: "banca", recurring: "monthly" },
+      { id: "HWS_LOJA_RENTAL", name: "Loja Alugável", priceMT: 3500, type: "store_rental", recurring: "monthly" },
+      { id: "HWS_LOJA_SALE", name: "Loja à Venda", priceMT: 150000, type: "store_sale", recurring: "once" },
+      { id: "HWS_CORPORATE", name: "Registo Empresarial", priceMT: 12000, type: "corporate", recurring: "once" },
+    ],
+    paymentMethods: [
+      { id: "METAMASK", name: "MetaMask (USDC/Polygon)", fee: "~0.01 USD" },
+      { id: "STRIPE", name: "Cartão Visa/Mastercard", fee: "2.9% + 0.30 USD" },
+    ],
   });
-});
-
-/* GET /api/v1/payments/expired — lista lojas com aluguer expirado */
-router.get("/expired", (_req: Request, res: Response) => {
-  const now = new Date();
-  const expired: any[] = [];
-
-  for (const [host, tenant] of Object.entries(database)) {
-    const t = tenant as any;
-    if (t.type !== "store") continue;
-    if (t.licenseStatus === "SUSPENDED") {
-      expired.push({ id: t.id, name: t.name, host, status: "SUSPENDED" });
-      continue;
-    }
-    if (t.nextPaymentDate) {
-      const nextPayment = new Date(t.nextPaymentDate);
-      if (nextPayment < now) {
-        expired.push({ id: t.id, name: t.name, host, status: "EXPIRED", nextPaymentDate: t.nextPaymentDate });
-      }
-    }
-  }
-
-  res.json({ success: true, expired, total: expired.length });
-});
-
-/* POST /api/v1/payments/check-expired — verifica e suspende lojas expiradas */
-router.post("/check-expired", (_req: Request, res: Response) => {
-  const now = new Date();
-  let suspended = 0;
-
-  for (const [, tenant] of Object.entries(database)) {
-    const t = tenant as any;
-    if (t.type !== "store" || t.licenseStatus === "SUSPENDED") continue;
-    if (t.nextPaymentDate) {
-      const nextPayment = new Date(t.nextPaymentDate);
-      if (nextPayment < now) {
-        t.licenseStatus = "SUSPENDED";
-        suspended++;
-      }
-    }
-  }
-
-  res.json({ success: true, message: `${suspended} loja(s) suspensa(s) por falta de pagamento.`, suspended });
 });
 
 export default router;

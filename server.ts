@@ -28,6 +28,7 @@ import receiptRoutes from "./src/server/routes/receipts";
 import cryptoRoutes from "./src/server/routes/crypto";
 import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
+import { generateAdsTxt } from "./src/server/services/paymentEngine";
 
 dotenv.config();
 
@@ -1250,6 +1251,19 @@ async function startServer() {
   app.use("/api/v1/payments", paymentRoutes);
   app.use("/api/v1/receipts", receiptRoutes);
   app.use("/api/v1/crypto", cryptoRoutes);
+
+  /* 📢 ads.txt dinâmico para Google AdSense em cada subdomínio */
+  app.get("/ads.txt", (req, res) => {
+    const host = req.headers.host || "";
+    const subdomain = host.split(".")[0];
+    const adsTxt = generateAdsTxt(subdomain);
+    if (adsTxt) {
+      res.type("text/plain").send(adsTxt);
+    } else {
+      res.status(404).type("text/plain").send("Espaço comercial inativo ou inexistente.");
+    }
+  });
+
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)
