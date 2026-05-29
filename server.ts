@@ -1175,6 +1175,31 @@ app.get("/api/v1/hws/payments/orders/:id", (req, res) => {
 });
 
 // ==========================================
+// 🔐 Caddy On-Demand TLS — Domain Validation
+// ==========================================
+// Endpoint consultado pelo Caddy antes de emitir certificado SSL
+// Retorna 200 se o domínio for permitido, 403 se não
+app.get("/api/v1/hws/domains/validate", (req, res) => {
+  const domain = (req.query.domain as string || "").toLowerCase();
+
+  // Permitir subdomínios *.hws.com
+  if (domain.endsWith(".hws.com") || domain === "hws.com") {
+    return res.status(200).json({ status: "ok" });
+  }
+
+  // Permitir domínios personalizados registados nos tenants
+  for (const tenant of Object.values(database)) {
+    const t = tenant as any;
+    if (t.customDomain && t.customDomain.toLowerCase() === domain) {
+      return res.status(200).json({ status: "ok", tenant: t.name });
+    }
+  }
+
+  // Bloquear domínios não registados
+  return res.status(403).json({ status: "denied", reason: "Domínio não registado na Bluewhite Corporation." });
+});
+
+// ==========================================
 // 🩺 Health Check / Readiness Probe
 // ==========================================
 app.get("/health", (_req, res) => {

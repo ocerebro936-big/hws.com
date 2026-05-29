@@ -1,48 +1,79 @@
-version: '3.8'
+version: "3.8"
+
+networks:
+  hws-cloud-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  shared_uploads:
 
 services:
-  hws-core-app:
-    build: .
-    container_name: hws_core_production
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgres://bluewhite:password@postgres_db:5432/hws_db
-    depends_on:
-      - postgres_db
-
-  caddy-proxy:
-    image: caddy:2-alpine
-    container_name: hws_caddy_proxy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    network_mode: "host"
-
   postgres_db:
-    image: postgres:16-alpine
-    container_name: hws_postgres
+    image: postgres:15-alpine
+    container_name: hws-postgres-db
     restart: always
     environment:
-      POSTGRES_USER: bluewhite
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: hws_db
+      POSTGRES_USER: hws_master_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-BluewhiteCoreSecretPassword2026}
+      POSTGRES_DB: hws_production_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hws-cloud-network
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bluewhite -d hws_db"]
+      test: ["CMD-SHELL", "pg_isready -U hws_master_admin -d hws_production_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-volumes:
-  caddy_data:
-  caddy_config:
-  postgres_data:
+  hws_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hws-app:latest
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://hws_master_admin:${POSTGRES_PASSWORD:-BluewhiteCoreSecretPassword2026}@postgres_db:5432/hws_production_db?schema=public
+      NODE_ENV: production
+      PORT: 3000
+      CADDY_ADMIN_URL: http://caddy_balancer:2019
+      APP_URL: https://${HWS_DOMAIN:-hws.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-ocerebro936@gmail.com}
+      ADMIN_WALLET: ${ADMIN_WALLET:-0xf44910f8F13BC4B485bb9ce2406d83a3F0Ada1F2}
+    volumes:
+      - shared_uploads:/app/uploads
+    networks:
+      - hws-cloud-network
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  caddy_balancer:
+    image: caddy:2-alpine
+    container_name: hws-caddy-balancer
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HWS_UPSTREAM: hws_app:3000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - shared_uploads:/var/www/uploads:ro
+    networks:
+      - hws-cloud-network
+    depends_on:
+      - hws_app
