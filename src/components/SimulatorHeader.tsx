@@ -32,6 +32,7 @@ interface SimulatorHeaderProps {
   logs: LogEntry[];
   onClearLogs: () => void;
   onAddLog: (type: 'info' | 'success' | 'warning', message: string) => void;
+  onOpenControlSpace: () => void;
 }
 
 export default function SimulatorHeader({
@@ -45,7 +46,8 @@ export default function SimulatorHeader({
   onRenewLicense,
   logs,
   onClearLogs,
-  onAddLog
+  onAddLog,
+  onOpenControlSpace
 }: SimulatorHeaderProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -485,6 +487,17 @@ export default function SimulatorHeader({
                         </div>
                       ))
                     )}
+                  </div>
+                  {/* Control Space Button */}
+                  <div className="lg:col-span-12 mt-2">
+                    <button
+                      onClick={onOpenControlSpace}
+                      className="w-full bg-gradient-to-r from-[#4f46e5] to-[#3730a3] hover:from-[#6366f1] hover:to-[#4f46e5] text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      <span className="text-sm">🚀</span>
+                      Abrir Control Space — Gestão Comercial & Financeira
+                      <span className="text-sm">📊</span>
+                    </button>
                   </div>
                 </div>
               </div>

@@ -40,6 +40,7 @@ interface MainHubProps {
   onRenewLicense: (tenantId: string) => void;
   onAddLog: (type: 'info' | 'success' | 'warning', message: string) => void;
   onRefreshTenants: () => Promise<void>;
+  onOpenControlSpace: () => void;
 }
 
 export default function MainHub({
@@ -48,7 +49,8 @@ export default function MainHub({
   onToggleStatus,
   onRenewLicense,
   onAddLog,
-  onRefreshTenants
+  onRefreshTenants,
+  onOpenControlSpace
 }: MainHubProps) {
   // Navigation tabs or filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -406,14 +408,22 @@ export default function MainHub({
                   Módulo de faturamento corporativo consolidado, provisões fiscais de IVA (16%), saldo em tesouraria sob proteção EULA e roteador de DNS para as lojas do ecossistema HWS.
                 </p>
               </div>
-              <button
-                onClick={fetchAdminStats}
-                disabled={isLoadingAdmin}
-                className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 text-slate-300 rounded-xl text-xs flex items-center gap-1.5 font-mono border border-slate-850 cursor-pointer transition-colors"
-              >
-                <RefreshCw size={13} className={isLoadingAdmin ? "animate-spin" : ""} />
-                <span>Atualizar Livro Fiscal</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onOpenControlSpace}
+                  className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-800 hover:from-indigo-500 hover:to-indigo-700 text-white rounded-xl text-xs flex items-center gap-1.5 font-bold border border-indigo-500/30 cursor-pointer transition-all"
+                >
+                  🚀 Control Space
+                </button>
+                <button
+                  onClick={fetchAdminStats}
+                  disabled={isLoadingAdmin}
+                  className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 text-slate-300 rounded-xl text-xs flex items-center gap-1.5 font-mono border border-slate-850 cursor-pointer transition-colors"
+                >
+                  <RefreshCw size={13} className={isLoadingAdmin ? "animate-spin" : ""} />
+                  <span>Atualizar Livro Fiscal</span>
+                </button>
+              </div>
             </div>
           </div>
 

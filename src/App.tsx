@@ -13,6 +13,7 @@ import { Tenant, LogEntry } from './types';
 import SimulatorHeader from './components/SimulatorHeader';
 import MainHub from './components/MainHub';
 import StoreFront from './components/StoreFront';
+import ControlSpace from './components/ControlSpace';
 import { isStaticMode, getStaticTenants, getStaticTenant } from './staticData';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
   const [detectedDomain, setDetectedDomain] = useState<string>('');
   const [originalHost, setOriginalHost] = useState<string>('');
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showControlSpace, setShowControlSpace] = useState(false);
 
   const staticMode = isStaticMode();
 
@@ -228,10 +230,15 @@ export default function App() {
     }
   };
 
+  const toggleControlSpace = () => {
+    setShowControlSpace((prev) => !prev);
+    addLog(showControlSpace ? "info" : "success", showControlSpace ? "Saindo do Control Space..." : "Acessando o Control Space HWS...");
+  };
+
   return (
     <div className="hws-core-space font-inter font-sans antialiased">
       
-      {currentTenant && (
+      {currentTenant && !showControlSpace && (
         <SimulatorHeader
           currentTenant={currentTenant}
           originalHost={originalHost}
@@ -244,11 +251,21 @@ export default function App() {
           logs={logs}
           onClearLogs={clearLogs}
           onAddLog={addLog}
+          onOpenControlSpace={toggleControlSpace}
         />
       )}
 
       <main className="transition-all duration-300">
-        {!currentTenant ? (
+        {showControlSpace ? (
+          <ControlSpace
+            tenants={tenants}
+            currentTenant={currentTenant}
+            onSwitchTenant={(id) => { setShowControlSpace(false); handleSwitchTenant(id); }}
+            onAddLog={addLog}
+            staticMode={staticMode}
+            onClose={() => setShowControlSpace(false)}
+          />
+        ) : !currentTenant ? (
           <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
             <span className="flex h-3 w-3 relative mb-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -266,6 +283,7 @@ export default function App() {
             onRenewLicense={handleRenewLicense}
             onAddLog={addLog}
             onRefreshTenants={fetchAllTenants}
+            onOpenControlSpace={toggleControlSpace}
           />
         ) : currentTenant.licenseStatus === 'SUSPENDED' ? (
           /* SUSPENDED LICENSE WARNING SCREEN (Bluewhite Lda Compliance) */
