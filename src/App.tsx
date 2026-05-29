@@ -13,6 +13,7 @@ import { Tenant, LogEntry } from './types';
 import SimulatorHeader from './components/SimulatorHeader';
 import MainHub from './components/MainHub';
 import StoreFront from './components/StoreFront';
+import { isStaticMode, getStaticTenants, getStaticTenant } from './staticData';
 
 export default function App() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -22,7 +23,8 @@ export default function App() {
   const [originalHost, setOriginalHost] = useState<string>('');
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  // Local helper to add styled timestamp logs inside Sandbox panel
+  const staticMode = isStaticMode();
+
   const addLog = (type: 'info' | 'success' | 'warning', message: string) => {
     const timestamp = new Date().toLocaleTimeString('pt-PT', { hour12: false });
     const newEntry: LogEntry = { timestamp, type, message };
@@ -34,22 +36,31 @@ export default function App() {
     addLog('info', 'Console de monitoramento limpo.');
   };
 
-  // Queries all tenants from in-memory backend
   const fetchAllTenants = async () => {
+    if (staticMode) {
+      setTenants(getStaticTenants() as Tenant[]);
+      return;
+    }
     try {
       const response = await fetch('/api/tenants');
       const data = await response.json();
-      if (data.success) {
-        setTenants(data.tenants);
-      }
+      if (data.success) setTenants(data.tenants);
     } catch (err) {
       console.error('Falha ao obter lista de inquilinos:', err);
       addLog('warning', 'Erro ao obter listagem de inquilinos das lojas.');
     }
   };
 
-  // Resolves active tenant with backend based on direct URL parameter or simulated host
   const fetchActiveTenant = async (simTenantId?: string) => {
+    if (staticMode) {
+      const tenant = getStaticTenant(simTenantId);
+      setCurrentTenant(tenant as Tenant);
+      setDetectedVia('Modo Estático (GitHub Pages)');
+      setDetectedDomain(tenant.domain);
+      setOriginalHost(window.location.host);
+      addLog('info', `Modo estático: Loja '${tenant.name}' carregada.`);
+      return;
+    }
     try {
       const url = simTenantId ? `/api/tenant?tenant=${simTenantId}` : '/api/tenant';
       const response = await fetch(url);
@@ -71,7 +82,6 @@ export default function App() {
     }
   };
 
-  // Adds a product to memory on Node.js Express server
   const handleAddProduct = async (
     tenantId: string, 
     name: string, 
@@ -79,6 +89,13 @@ export default function App() {
     desc: string, 
     category: string
   ): Promise<boolean> => {
+    if (staticMode) {
+      addLog('warning', 'Modo estático: a adicionar produto localmente (não persistido).');
+      const t = getStaticTenant(tenantId);
+      (t.products as any[]).unshift({ id: Date.now(), name, price, description: desc, category });
+      setCurrentTenant({ ...t } as Tenant);
+      return true;
+    }
     try {
       const response = await fetch(`/api/tenants/${tenantId}/products`, {
         method: 'POST',
@@ -88,9 +105,7 @@ export default function App() {
       const data = await response.json();
       
       if (data.success) {
-        // Refresh catalog arrays
         await fetchAllTenants();
-        // Dynamic re-sync details
         await fetchActiveTenant(tenantId);
         return true;
       }
@@ -160,8 +175,14 @@ export default function App() {
     fetchActiveTenant(tenantId);
   };
 
-  // Toggles license status (PAID vs SUSPENDED) for sandbox convenience
   const handleToggleStatus = async (tenantId: string) => {
+    if (staticMode) {
+      const t = getStaticTenant(tenantId);
+      t.licenseStatus = t.licenseStatus === "SUSPENDED" ? "PAID" : "SUSPENDED";
+      setCurrentTenant({ ...t } as Tenant);
+      addLog('warning', `[Gestão Bluewhite] Licença de '${tenantId}': ${t.licenseStatus}.`);
+      return;
+    }
     try {
       const response = await fetch(`/api/tenants/${tenantId}/toggle-status`, {
         method: 'POST'
@@ -178,8 +199,11 @@ export default function App() {
     }
   };
 
-  // Pays rent and restores store using actual Stripe sandbox Checkout!
   const handleRenewLicense = async (tenantId: string) => {
+    if (staticMode) {
+      addLog('warning', 'Modo estático: simular pagamento não disponível. Use o servidor Express para testar pagamentos reais.');
+      return;
+    }
     try {
       addLog('info', `[Stripe Express] Criando sessão de pagamento de licença para '${tenantId}'...`);
       const response = await fetch('/api/v1/hws/payments/create-session', {
