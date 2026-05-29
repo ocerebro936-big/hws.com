@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { sendRegistrationSms, isNuvemBlueConfigured } from "../services/sms";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ function generateId(): string {
 }
 
 /* POST /api/v1/users/register — cria conta e devolve ID único */
-router.post("/register", (req: Request, res: Response) => {
+router.post("/register", async (req: Request, res: Response) => {
   const { name, email, phone } = req.body;
   if (!name || !email) {
     res.status(400).json({ success: false, error: "name e email são obrigatórios" });
@@ -47,6 +48,14 @@ router.post("/register", (req: Request, res: Response) => {
     storeIds: [],
   };
   users.set(id, user);
+
+  /* Enviar SMS de boas-vindas se houver telefone */
+  if (phone && isNuvemBlueConfigured()) {
+    sendRegistrationSms(phone, name, id).catch((err) =>
+      console.error("[SMS] Erro ao enviar SMS de registo:", err.message)
+    );
+  }
+
   res.status(201).json({ success: true, message: "Conta criada. Guarde o seu ID único para aceder ao painel.", user });
 });
 

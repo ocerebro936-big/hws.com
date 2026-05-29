@@ -3,11 +3,12 @@ import bcrypt from "bcrypt";
 import { prisma } from "../prisma";
 import { isUsingPrisma } from "../db";
 import { database } from "../state";
+import { sendStoreCreatedSms, sendRegistrationSms, isNuvemBlueConfigured } from "../services/sms";
 
 const router = Router();
 
 router.post("/register-store", async (req: Request, res: Response) => {
-  const { name, email, password, storeName, hostSubdomain, customDomain } = req.body;
+  const { name, email, password, storeName, hostSubdomain, customDomain, phone } = req.body;
 
   if (!name || !email || !password || !storeName || !hostSubdomain) {
     return res.status(400).json({ success: false, error: "Campos obrigatórios: name, email, password, storeName, hostSubdomain" });
@@ -34,6 +35,11 @@ router.post("/register-store", async (req: Request, res: Response) => {
       plan: "Starter",
       accumulatedSales: 0,
     };
+    /* Notificar por SMS se configurado */
+    if (phone && isNuvemBlueConfigured()) {
+      sendStoreCreatedSms(phone, storeName, subdomain).catch(() => {});
+    }
+
     return res.status(201).json({
       success: true,
       message: "Conta criada em modo desenvolvimento.",
@@ -58,6 +64,11 @@ router.post("/register-store", async (req: Request, res: Response) => {
       },
       include: { tenants: true },
     });
+
+    /* Notificar por SMS se configurado */
+    if (phone && isNuvemBlueConfigured()) {
+      sendStoreCreatedSms(phone, storeName, `${hostSubdomain}.hws.com`).catch(() => {});
+    }
 
     return res.status(201).json({
       success: true,
