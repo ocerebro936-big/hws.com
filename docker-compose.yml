@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  hws-core-app:
+    build: .
+    container_name: hws_core_production
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://bluewhite:password@postgres_db:5432/hws_db
+    depends_on:
+      - postgres_db
+
+  caddy-proxy:
+    image: caddy:2-alpine
+    container_name: hws_caddy_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    network_mode: "host"
+
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: hws_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: bluewhite
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: hws_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bluewhite -d hws_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:

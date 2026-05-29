@@ -1,0 +1,24 @@
+{
+    # Configuração global de SSL On-Demand
+    on_demand_tls {
+        # O Caddy consulta o HWS antes de emitir certificados
+        ask http://localhost:3000/api/v1/hws/domains/validate
+        interval 2m
+        burst 5
+    }
+}
+
+# Escuta qualquer domínio ou subdomínio que aponte para o IP do Servidor Dedicado
+:443 {
+    tls {
+        on_demand
+    }
+
+    # Redireciona todo o tráfego de rede para o core Node.js
+    reverse_proxy localhost:3000
+}
+
+# HTTP → HTTPS redirect
+:80 {
+    redir https://{host}{uri} permanent
+}

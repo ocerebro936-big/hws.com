@@ -1,0 +1,6 @@
+{
+  "name": "Hub World Shopping",
+  "description": "Plataforma multi-tenant de comércio mundial com shopping central (Hub) e vitrines de lojas dinâmicas hospedadas em subdomínios, operada e licenciada pela Bluewhite Corporation Lda.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
