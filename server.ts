@@ -232,6 +232,8 @@ Object.assign(database, {
     customDomain: "vanguardmoda.com",
     plan: "Pro",
     accumulatedSales: 125000,
+    latitude: -25.9685,
+    longitude: 32.5750,
     products: [
       { id: 1, name: "Casaco Slim Fit Tailored", price: "4.500 MT", description: "Lã fria italiana legítima, forro acetinado, corte milimétrico preciso.", category: "Casacos" },
       { id: 2, name: "Bota Couro Urban Premium", price: "6.200 MT", description: "Feito à mão, couro com curtimento orgânico e solado antiderrapante.", category: "Calçados" },
@@ -256,6 +258,8 @@ Object.assign(database, {
     customDomain: null,
     plan: "Starter",
     accumulatedSales: 42000,
+    latitude: -25.9780,
+    longitude: 32.5900,
     products: [
       { id: 1, name: "Auriculares Wireless Pro ANC", price: "2.100 MT", description: "Cancelamento ativo híbrido de 45dB, áudio espacial dinâmico tridimensional.", category: "Áudio" },
       { id: 2, name: "Carregador de Indução Rápido 50W", price: "1.500 MT", description: "Esfriamento termoelétrico integrado que previne aquecimento do smartphone.", category: "Energia" },
@@ -1228,6 +1232,7 @@ async function startServer() {
   app.use("/api/v1/hws", payoutRoutes);
   app.use("/api/v1/ads", adRoutes);
   app.use("/api/v1/feed", adRoutes);
+  app.use("/api/v1/traffic", adRoutes);
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)

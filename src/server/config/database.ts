@@ -28,6 +28,8 @@ export interface Tenant {
   customDomain?: string | null;
   plan?: 'Starter' | 'Pro' | 'Enterprise';
   accumulatedSales?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface DropshippingLink {
@@ -67,6 +69,8 @@ export interface AdCampaign {
   spent: number;
   clicks: number;
   impressions: number;
+  totalImpressions: number;
+  revenueEarned: number;
   isActive: boolean;
   createdAt: string;
 }

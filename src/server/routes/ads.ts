@@ -61,6 +61,8 @@ router.post("/purchase", async (req: Request, res: Response) => {
       spent: 0,
       clicks: 0,
       impressions: 0,
+      totalImpressions: 0,
+      revenueEarned: 0,
       isActive: true,
       createdAt: new Date().toISOString(),
     });
@@ -145,6 +147,97 @@ router.get("/discover", async (req: Request, res: Response) => {
   scored.sort((a: any, b: any) => b.feedScore - a.feedScore);
 
   return res.json({ success: true, feed: scored });
+});
+
+// ==========================================
+// POST /api/v1/traffic/register-impression
+// Gateway de impressões — renda automática por tráfego
+// ==========================================
+router.post("/register-impression", async (req: Request, res: Response) => {
+  const { campaignIds } = req.body;
+
+  try {
+    const revenuePerView = RPM / 1000;
+
+    if (campaignIds && Array.isArray(campaignIds) && campaignIds.length > 0) {
+      if (isUsingPrisma()) {
+        await prisma.adCampaign.updateMany({
+          where: { id: { in: campaignIds } },
+          data: {
+            totalImpressions: { increment: 1 },
+            revenueEarned: { increment: revenuePerView },
+          },
+        });
+      } else {
+        for (const cid of campaignIds) {
+          const camp = adCampaigns.find((c) => c.id === cid);
+          if (camp) {
+            camp.totalImpressions = (camp.totalImpressions || 0) + 1;
+            camp.revenueEarned = (camp.revenueEarned || 0) + revenuePerView;
+            camp.impressions = (camp.impressions || 0) + 1;
+          }
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, message: "Impressão de tráfego computada no caixa mestre." });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==========================================
+// POST /api/v1/ads/external-partner-publish
+// Anunciantes externos publicam campanhas
+// ==========================================
+router.post("/external-partner-publish", async (req: Request, res: Response) => {
+  const apiSecret = req.headers["x-hws-partner-token"];
+  if (!apiSecret || apiSecret !== "Bluewhite_Network_Secret_2026") {
+    return res.status(401).json({ success: false, error: "Acesso negado. Token de publicidade inválido." });
+  }
+
+  const { clientName, targetUrl, imageUrl, placement, budget, costPerClick } = req.body;
+  if (!clientName || !targetUrl || !imageUrl || !placement) {
+    return res.status(400).json({ success: false, error: "Campos obrigatórios: clientName, targetUrl, imageUrl, placement" });
+  }
+
+  const validPlacements = ["FEED_TOP", "STORE_SIDEBAR", "FEED_GRID"];
+  if (!validPlacements.includes(placement)) {
+    return res.status(400).json({ success: false, error: `Placement inválido. Use: ${validPlacements.join(", ")}` });
+  }
+
+  const cpc = parseFloat(costPerClick) || 0.75;
+  const bgt = parseFloat(budget) || 0;
+
+  try {
+    if (isUsingPrisma()) {
+      const campaign = await prisma.adCampaign.create({
+        data: { clientName, targetUrl, imageUrl, placement, costPerClick: cpc, budget: bgt },
+      });
+      return res.status(201).json({ success: true, message: "Campanha em produção ativa.", campaignId: campaign.id });
+    }
+
+    const id = `camp_partner_${Date.now()}`;
+    adCampaigns.push({
+      id,
+      clientName,
+      targetUrl,
+      imageUrl,
+      placement,
+      costPerClick: cpc,
+      budget: bgt,
+      spent: 0,
+      clicks: 0,
+      impressions: 0,
+      totalImpressions: 0,
+      revenueEarned: 0,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    });
+    return res.status(201).json({ success: true, message: "Campanha parceira activa (modo dev).", campaignId: id });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // ==========================================
