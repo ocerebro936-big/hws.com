@@ -17,6 +17,8 @@ import ControlSpace from './components/ControlSpace';
 import LandingPage from './components/LandingPage';
 import { isStaticMode, getStaticTenants, getStaticTenant } from './staticData';
 
+declare const __BUILD_VERSION__: string;
+
 export default function App() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
@@ -131,6 +133,15 @@ export default function App() {
 
   // Bootstrap fetching
   useEffect(() => {
+    const prevVersion = localStorage.getItem("hws_build_version");
+    const currVersion = typeof __BUILD_VERSION__ !== "undefined" ? __BUILD_VERSION__ : "dev";
+    if (prevVersion && prevVersion !== currVersion) {
+      localStorage.clear();
+      window.location.reload();
+      return;
+    }
+    localStorage.setItem("hws_build_version", currVersion);
+
     addLog('info', 'Inicializando Sandbox de Solução HWS Multi-Tenant...');
     
     const params = new URLSearchParams(window.location.search);

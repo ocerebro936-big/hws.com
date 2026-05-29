@@ -3,10 +3,22 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+const BUILD_VERSION = Date.now().toString(36);
+
+const htmlVersionPlugin = {
+  name: 'html-version',
+  transformIndexHtml(html: string) {
+    return html.replace(/__BUILD_VERSION__/g, BUILD_VERSION);
+  },
+};
+
 export default defineConfig(() => {
   return {
     base: '/hws.com/',
-    plugins: [react(), tailwindcss()],
+    define: {
+      __BUILD_VERSION__: JSON.stringify(BUILD_VERSION),
+    },
+    plugins: [react(), tailwindcss(), htmlVersionPlugin],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
