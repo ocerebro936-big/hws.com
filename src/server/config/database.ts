@@ -4,6 +4,7 @@ export interface Product {
   price: string;
   description: string;
   category: string;
+  imageUrl?: string;
 }
 
 export type TenantTheme = 'light' | 'dark' | 'cyberpunk';

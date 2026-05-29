@@ -38,9 +38,9 @@ const STATIC_TENANTS = [
     plan: "Pro",
     accumulatedSales: 125000,
     products: [
-      { id: 1, name: "Casaco Slim Fit Tailored", price: "4.500 MT", category: "Casacos" },
-      { id: 2, name: "Bota Couro Urban Premium", price: "6.200 MT", category: "Calçados" },
-      { id: 3, name: "Relógio Chrono Slate Carbon", price: "12.800 MT", category: "Acessórios" }
+      { id: 1, name: "Casaco Slim Fit Tailored", price: "4.500 MT", category: "Casacos", imageUrl: "https://picsum.photos/seed/casaco-slim/400/400" },
+      { id: 2, name: "Bota Couro Urban Premium", price: "6.200 MT", category: "Calçados", imageUrl: "https://picsum.photos/seed/bota-couro/400/400" },
+      { id: 3, name: "Relógio Chrono Slate Carbon", price: "12.800 MT", category: "Acessórios", imageUrl: "https://picsum.photos/seed/relogio-chrono/400/400" }
     ]
   },
   {
@@ -62,9 +62,9 @@ const STATIC_TENANTS = [
     plan: "Starter",
     accumulatedSales: 42000,
     products: [
-      { id: 1, name: "Auriculares Wireless Pro ANC", price: "2.100 MT", category: "Áudio" },
-      { id: 2, name: "Carregador de Indução Rápido 50W", price: "1.500 MT", category: "Energia" },
-      { id: 3, name: "Teclado Mecânico Matrix-X 60%", price: "5.800 MT", category: "Periféricos" }
+      { id: 1, name: "Auriculares Wireless Pro ANC", price: "2.100 MT", category: "Áudio", imageUrl: "https://picsum.photos/seed/auriculares-anc/400/400" },
+      { id: 2, name: "Carregador de Indução Rápido 50W", price: "1.500 MT", category: "Energia", imageUrl: "https://picsum.photos/seed/carregador-induçao/400/400" },
+      { id: 3, name: "Teclado Mecânico Matrix-X 60%", price: "5.800 MT", category: "Periféricos", imageUrl: "https://picsum.photos/seed/teclado-matrix/400/400" }
     ]
   }
 ];

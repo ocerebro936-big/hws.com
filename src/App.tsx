@@ -86,27 +86,36 @@ export default function App() {
   };
 
   const handleAddProduct = async (
-    tenantId: string, 
-    name: string, 
-    price: string, 
-    desc: string, 
-    category: string
+    tenantId: string,
+    name: string,
+    price: string,
+    desc: string,
+    category: string,
+    image?: File
   ): Promise<boolean> => {
     if (staticMode) {
       addLog('warning', 'Modo estático: a adicionar produto localmente (não persistido).');
       const t = getStaticTenant(tenantId);
-      (t.products as any[]).unshift({ id: Date.now(), name, price, description: desc, category });
+      const imageUrl = image ? URL.createObjectURL(image) : undefined;
+      (t.products as any[]).unshift({ id: Date.now(), name, price, description: desc, category, imageUrl });
       setCurrentTenant({ ...t } as Tenant);
       return true;
     }
     try {
-      const response = await fetch(`/api/tenants/${tenantId}/products`, {
+      const formData = new FormData();
+      formData.append("tenantId", tenantId);
+      formData.append("name", name);
+      formData.append("price", price);
+      formData.append("description", desc);
+      formData.append("category", category);
+      if (image) formData.append("photo", image);
+
+      const response = await fetch(`/api/v1/products/add`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, price, description: desc, category })
+        body: formData,
       });
       const data = await response.json();
-      
+
       if (data.success) {
         await fetchAllTenants();
         await fetchActiveTenant(tenantId);

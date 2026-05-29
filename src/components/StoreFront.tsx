@@ -33,7 +33,7 @@ interface StoreFrontProps {
   onBackToHub: () => void;
   onAddLog: (type: 'info' | 'success' | 'warning', message: string) => void;
   onRefreshTenants: () => Promise<void>;
-  onAddProduct: (tenantId: string, name: string, price: string, desc: string, category: string) => Promise<boolean>;
+  onAddProduct: (tenantId: string, name: string, price: string, desc: string, category: string, image?: File) => Promise<boolean>;
 }
 
 interface CartItem {
@@ -68,6 +68,7 @@ export default function StoreFront({
   const [newProductDesc, setNewProductDesc] = useState('');
   const [newProductCat, setNewProductCat] = useState('Geral');
   
+  const [newProductImage, setNewProductImage] = useState<File | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState('');
 
@@ -191,7 +192,8 @@ export default function StoreFront({
         newProductName,
         newProductPrice,
         newProductDesc,
-        newProductCat
+        newProductCat,
+        newProductImage || undefined
       );
 
       if (success) {
@@ -200,6 +202,7 @@ export default function StoreFront({
         setNewProductPrice('');
         setNewProductDesc('');
         setNewProductCat('Geral');
+        setNewProductImage(null);
         setShowInventoryModal(false);
         await onRefreshTenants();
       } else {
@@ -454,6 +457,20 @@ export default function StoreFront({
                     className={`border rounded-xl p-5 flex flex-col justify-between transition-all group ${currentStyle.card}`}
                   >
                     <div className="space-y-3">
+                      <div className="w-full h-40 rounded-lg overflow-hidden bg-slate-800/50 flex items-center justify-center">
+                        {(product.imageUrl || product.image) ? (
+                          <img
+                            src={product.imageUrl || product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <svg className="w-10 h-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </div>
                       <div className="flex items-start justify-between gap-2">
                         <span className={`text-[9px] uppercase font-mono tracking-widest px-2 py-0.5 rounded border font-bold ${currentStyle.contrastBadge}`}>
                           {product.category || 'Destaque'}
@@ -821,6 +838,16 @@ export default function StoreFront({
                   onChange={(e) => setNewProductDesc(e.target.value)}
                   placeholder="Ex: Lentes com proteção UV-400, liga de titânio acetinado e ajuste anatômico..."
                   className="w-full text-xs p-2 bg-slate-950 text-slate-100 border border-slate-800 rounded outline-none focus:border-cyan-500 h-16 resize-none transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-400 block font-mono">Foto do Produto</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => setNewProductImage(e.target.files?.[0] || null)}
+                  className="w-full text-xs p-2 bg-slate-950 text-slate-100 border border-slate-800 rounded outline-none focus:border-cyan-500 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 transition-colors"
                 />
               </div>
 
