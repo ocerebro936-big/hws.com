@@ -64,7 +64,7 @@ export default function ImmersiveFeed({ tenants, onSwitchTenant, onAddLog, stati
       {/* Header do Feed Imersivo */}
       <div className="text-center space-y-2 pb-2">
         <h2 className="text-xl md:text-2xl font-black text-white font-display tracking-tight">
-          🌌 Descubra Terrenos Comerciais
+          🛍️ Explore as Lojas do Ecossistema
         </h2>
         <p className="text-sm text-slate-400 max-w-xl mx-auto">
           Cada loja é um microverso independente. Entre, explore e descubra o ecossistema único de cada marca.
@@ -157,7 +157,7 @@ export default function ImmersiveFeed({ tenants, onSwitchTenant, onAddLog, stati
                       : "0 4px 12px rgba(0,0,0,0.3)",
                   }}
                 >
-                  {isEntering ? "A entrar..." : "Entrar no Terreno 🚀"}
+                  {isEntering ? "A entrar..." : "Entrar na Loja 🚀"}
                 </button>
               </div>
 
@@ -176,7 +176,7 @@ export default function ImmersiveFeed({ tenants, onSwitchTenant, onAddLog, stati
 
       {/* Métricas ao vivo */}
       <div className="text-center text-[10px] text-slate-500 font-mono pt-4 border-t border-[#1e293b] max-w-4xl mx-auto">
-        {stores.length} {stores.length === 1 ? "terreno disponível" : "terrenos disponíveis"} · Clique em "Entrar no Terreno" para explorar o microverso de cada loja
+        {stores.length} {stores.length === 1 ? "loja disponível" : "lojas disponíveis"} · Clique em "Entrar na Loja" para explorar o microverso de cada marca
       </div>
     </div>
   );

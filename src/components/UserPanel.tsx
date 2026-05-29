@@ -44,6 +44,7 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
   const [msgType, setMsgType] = useState<"success" | "error" | "">("");
   const [loading, setLoading] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY);
@@ -84,6 +85,7 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
 
   const handleRegister = async () => {
     if (!registerForm.name || !registerForm.email) return;
+    if (!acceptedTerms) { showMsg("Deve aceitar os Termos de Uso e a Política de Privacidade para criar conta.", "error"); return; }
     setLoading(true);
     if (staticMode) {
       const all = getLocalUsers();
@@ -266,12 +268,21 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
               placeholder="Telemóvel (opcional)"
               className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-[#4f46e5] placeholder:text-slate-500"
             />
+            <label className="flex items-start gap-2 text-[10px] text-slate-400 leading-relaxed cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>Ao conectar o seu ID Único, autoriza a plataforma a processar dados de tráfego, interações e visitas para métricas comerciais, em conformidade com a <strong className="text-[#38bdf8]">Política de Privacidade</strong> e os <strong className="text-[#38bdf8]">Termos de Uso</strong> do HWS.</span>
+            </label>
             <button
               onClick={handleRegister} disabled={loading}
               className="w-full bg-[#4f46e5] hover:bg-[#3730a3] text-xs font-bold py-2.5 rounded-lg text-white transition-colors disabled:opacity-30"
             >{loading ? "A registar..." : "Criar Conta"}</button>
             <button
-              onClick={() => setShowRegister(false)}
+              onClick={() => { setShowRegister(false); setAcceptedTerms(false); }}
               className="text-[11px] text-slate-400 hover:text-white block mx-auto"
             >Já tem conta? Faça login</button>
           </div>

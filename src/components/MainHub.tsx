@@ -35,6 +35,7 @@ import {
 import { Tenant, Product } from '../types';
 import WelcomeBanner from './WelcomeBanner';
 import UserPanel from './UserPanel';
+import { TermosDeUso, PoliticaPrivacidade, Disclaimer } from './LegalDocs';
 
 interface MainHubProps {
   tenants: Tenant[];
@@ -169,6 +170,9 @@ export default function MainHub({
 
   // User Panel
   const [showUserPanel, setShowUserPanel] = useState(false);
+  const [showTermos, setShowTermos] = useState(false);
+  const [showPrivacidade, setShowPrivacidade] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   // Form states for Renting Space
   const [storeName, setStoreName] = useState('');
@@ -1044,7 +1048,15 @@ export default function MainHub({
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 max-w-none text-center font-mono text-[10px] text-slate-500 space-y-1">
               <div>Plataforma Multi-Tenant Desenvolvida e Operada por: <strong>Bluewhite Corporation Lda.</strong></div>
               <div>Entidade Legal de Direito Privado Moçambicano | Registo IPI: HWS-HWS / NUIT Gestora: 100234149</div>
-              <div className="pt-2 text-indigo-400">Licenciamento de Software: Proprietary Commercial EULA (Subdomínios Dinâmicos)</div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-[11px]">
+                <button onClick={() => setShowTermos(true)} className="text-indigo-400 hover:text-indigo-300 underline cursor-pointer">Termos de Uso</button>
+                <span className="text-slate-600">·</span>
+                <button onClick={() => setShowPrivacidade(true)} className="text-indigo-400 hover:text-indigo-300 underline cursor-pointer">Política de Privacidade</button>
+                <span className="text-slate-600">·</span>
+                <button onClick={() => setShowDisclaimer(true)} className="text-indigo-400 hover:text-indigo-300 underline cursor-pointer">Isenção de Responsabilidade</button>
+              </div>
+              <div className="pt-1 text-indigo-400">Licenciamento de Software: Proprietary Commercial EULA (Subdomínios Dinâmicos)</div>
+              <div className="pt-1 text-[9px] text-slate-600">© {new Date().getFullYear()} Bluewhite Corporation Lda. — Moçambique. Todos os direitos reservados.</div>
             </div>
           </section>
 
@@ -1286,6 +1298,11 @@ export default function MainHub({
           </div>
         </div>
       )}
+
+      {/* Legal Modals */}
+      {showTermos && <TermosDeUso onClose={() => setShowTermos(false)} />}
+      {showPrivacidade && <PoliticaPrivacidade onClose={() => setShowPrivacidade(false)} />}
+      {showDisclaimer && <Disclaimer onClose={() => setShowDisclaimer(false)} />}
 
     </div>
   );
