@@ -22,6 +22,17 @@ enum BillingCycle {
   ONE_TIME
 }
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenants   Tenant[]
+}
+
 model PackagePlan {
   id              String       @id @default(uuid())
   name            String       @unique
@@ -42,6 +53,8 @@ model Tenant {
   host               String        @unique
   customDomain       String?       @unique
   name               String
+  userId             String
+  user               User          @relation(fields: [userId], references: [id])
   plan               String        @default("starter")
   packagePlanId      String?
   packagePlan        PackagePlan?  @relation(fields: [packagePlanId], references: [id])
@@ -59,8 +72,10 @@ model Product {
   tenantId        String
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
-  costPrice       Float
+  description     String?
+  costPrice       Float    @default(0)
   finalPrice      Float
+  imageUrl        String?
   isDropshipping  Boolean  @default(false)
   sourceHost      String?
   sourceProductId String?

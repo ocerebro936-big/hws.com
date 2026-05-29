@@ -18,12 +18,20 @@ export async function initDatabase() {
     const count = await prisma.tenant.count();
     if (count === 0) {
       console.log("[DB] Seeding initial tenants from in-memory data...");
+      const adminUser = await prisma.user.create({
+        data: {
+          email: "admin@bluewhite.co.mz",
+          password: "$2b$10$placeholder",
+          name: "Bluewhite Admin",
+        },
+      });
       for (const [host, tenant] of Object.entries(database)) {
         const t = tenant as any;
         await prisma.tenant.create({
           data: {
             host,
             name: t.name,
+            userId: adminUser.id,
             plan: t.plan || "starter",
             status: (t.licenseStatus === "SUSPENDED" ? "SUSPENDED" : "PAID") as any,
             theme: t.theme || "luxury",

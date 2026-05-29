@@ -14,6 +14,7 @@ import SimulatorHeader from './components/SimulatorHeader';
 import MainHub from './components/MainHub';
 import StoreFront from './components/StoreFront';
 import ControlSpace from './components/ControlSpace';
+import LandingPage from './components/LandingPage';
 import { isStaticMode, getStaticTenants, getStaticTenant } from './staticData';
 
 export default function App() {
@@ -266,15 +267,7 @@ export default function App() {
             onClose={() => setShowControlSpace(false)}
           />
         ) : !currentTenant ? (
-          <div className="min-h-[70vh] flex flex-col items-center justify-center p-4">
-            <span className="flex h-3 w-3 relative mb-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-            </span>
-            <p className="text-xs text-slate-500 font-mono tracking-tight">
-              Conectando com o interpretador multi-tenant HWS...
-            </p>
-          </div>
+          <LandingPage />
         ) : currentTenant.type === 'hub' ? (
           <MainHub
             tenants={tenants}

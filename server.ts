@@ -16,6 +16,9 @@ import type { Product, Tenant, DropshippingLink } from "./src/server/config/data
 import webhookRoutes from "./src/server/routes/webhooks";
 import checkoutRoutes from "./src/server/routes/checkout";
 import subscriptionRoutes from "./src/server/routes/subscriptions";
+import authRoutes from "./src/server/routes/auth";
+import productRoutes from "./src/server/routes/products";
+import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
 
 dotenv.config();
@@ -1193,6 +1196,12 @@ async function startServer() {
   app.use("/api/v1/hws/checkout", checkoutRoutes);
   app.use("/api/v1/hws/webhooks", webhookRoutes);
   app.use("/api/v1/hws/subscriptions", subscriptionRoutes);
+  app.use("/api/v1/auth", authRoutes);
+  app.use("/api/v1/products", productRoutes);
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+  // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)
+  app.use(tenantResolver);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
