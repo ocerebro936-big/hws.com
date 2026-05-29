@@ -9,37 +9,16 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import Stripe from "stripe";
 
+import { getStripe } from "./src/server/stripe";
+import { credentials } from "./src/server/config/credentials";
+import { database, financeiroCorporativo, registrarMockDns, dropshippingDB, pendingOrders } from "./src/server/state";
+import type { Product, Tenant, DropshippingLink } from "./src/server/config/database";
+import webhookRoutes from "./src/server/routes/webhooks";
+import checkoutRoutes from "./src/server/routes/checkout";
+
 dotenv.config();
 
-// Lazy Stripe client initializer
-let stripeClient: Stripe | null = null;
-function getStripe(): Stripe {
-  if (!stripeClient) {
-    const key = process.env.STRIPE_SECRET_KEY || "sk_sandbox_UvXAXsM1wrTfU4mIHy3w9bC2rTbyGcIx";
-    stripeClient = new Stripe(key);
-  }
-  return stripeClient;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  price: string;
-  description: string;
-  category: string;
-}
-
-interface Tenant {
-  id: string;
-  name: string;
-  type: "hub" | "store";
-  description: string;
-  theme: "light" | "dark" | "cyberpunk";
-  domain: string;
-  tagline: string;
-  accentColor: string;
-  products: Product[];
-  
+interface TenantFull extends Tenant {
   // Bluewhite Corporation Lda. Compliance fields
   licenseStatus?: 'PAID' | 'SUSPENDED';
   ownerId?: string;
@@ -52,185 +31,11 @@ interface Tenant {
   accumulatedSales?: number;
 }
 
-// ==========================================
-// 📦 Dropshipping (Cross-Docking) Data Types
-// ==========================================
-interface DropshippingLink {
-  id: string;
-  productId: number;
-  productName: string;
-  sourceStoreId: string;
-  targetStoreId: string;
-  costPrice: number;
-  finalPrice: number;
-  resellerProfit: number;
-  bluewhiteCommission: number;
-  createdAt: string;
-  status: "ACTIVE" | "SOLD";
-}
 
-const dropshippingDB: DropshippingLink[] = [];
 
-// ==========================================
-// 🌐 DNS Registrar & Corporate Finance
-// ==========================================
-const registrarMockDns: Record<string, { available: boolean; ownerTenantId?: string }> = {
-  "meuproprionegocio.com": { available: false },
-  "vanguardmoda.com": { available: false, ownerTenantId: "moda" },
-  "bluewhitedigital.net": { available: false }
-};
 
-// Global corporate finance statistics under Bluewhite Corp management
-const financeiroCorporativo = {
-  caixaBancarioPendente: 15000, 
-  comissoesRetidasTotal: 84300,
-  ivaLiquidadoTotal: 13488
-};
 
-// ==========================================
-// 🛡️ Centralized Payment Credentials Config
-// ==========================================
-const credentials = {
-  nacional: {
-    mpesa: {
-      api_host: process.env.MPESA_API_URL || "https://api.vm.co.mz/ipg/v1x/",
-      service_provider_code: process.env.MPESA_SERVICE_CODE || "898989",
-      api_encrypted_api_key: process.env.MPESA_PUBLIC_KEY || "",
-      initiator_identifier: process.env.MPESA_INITIATOR_ID || "hws_bluewhite"
-    },
-    emola: {
-      api_host: process.env.EMOLA_API_URL || "https://api.emola.movitel.co.mz/v1/payment",
-      merchant_id: process.env.EMOLA_MERCHANT_ID || "HW001",
-      application_id: process.env.EMOLA_APP_ID || "",
-      secret_key: process.env.EMOLA_SECRET_KEY || ""
-    },
-    banco_local_direct: {
-      titular: "Bluewhite Corporation Lda.",
-      nuit: "500123456",
-      nib_bim: process.env.BIM_NIB || "",
-      nib_bci: process.env.BCI_NIB || ""
-    }
-  },
-  internacional: {
-    stripe: {
-      secret_key: process.env.STRIPE_SECRET_KEY || "sk_sandbox_UvXAXsM1wrTfU4mIHy3w9bC2rTbyGcIx",
-      public_key: process.env.STRIPE_PUBLIC_KEY || "pk_test_placeholder",
-      webhook_secret: process.env.STRIPE_WEBHOOK_SECRET || ""
-    },
-    paypal: {
-      client_id: process.env.PAYPAL_CLIENT_ID || "sb",
-      client_secret: process.env.PAYPAL_SECRET || "",
-      mode: process.env.NODE_ENV === 'production' ? 'live' : 'sandbox'
-    }
-  }
-};
 
-// ==========================================
-// 💳 Motor Multi-Gateway (PaymentService)
-// ==========================================
-const paymentService = {
-
-  // 🇲🇿 M-Pesa (Vodacom) - Push STK
-  async processMpesa(orderId: string, phone: string, amount: number) {
-    const payload = {
-      input_ServiceProviderCode: credentials.nacional.mpesa.service_provider_code,
-      input_CustomerMSISDN: phone.replace(/[^0-9]/g, ""),
-      input_Amount: amount.toFixed(2),
-      input_TransactionReference: orderId,
-      input_ThirdPartyReference: `HWS-${orderId}`
-    };
-    // Simulação - em produção faria POST com token bearer
-    console.log(`[MPESA] Push STK p/ ${phone}: ${amount} MZN (ref: ${orderId})`);
-    return {
-      success: true,
-      status: "PROCESSING",
-      gateway: "MPESA_C2B",
-      reference: orderId,
-      message: "Pedido de pagamento enviado ao telemóvel. Introduza o PIN M-Pesa.",
-      payload
-    };
-  },
-
-  // 🇲🇿 e-Mola (Movitel) - Push STK
-  async processEmola(orderId: string, phone: string, amount: number) {
-    const payload = {
-      merchant_id: credentials.nacional.emola.merchant_id,
-      customer_phone: phone.replace(/[^0-9]/g, ""),
-      amount: amount.toFixed(2),
-      transaction_id: orderId,
-      callback_url: `${process.env.APP_URL || "http://localhost:3000"}/api/v1/hws/payments/emola/callback`
-    };
-    console.log(`[EMOLA] Push STK p/ ${phone}: ${amount} MZN (ref: ${orderId})`);
-    return {
-      success: true,
-      status: "PROCESSING",
-      gateway: "EMOLA_C2B",
-      reference: orderId,
-      message: "Pedido de pagamento enviado ao telemóvel. Confirme no e-Mola.",
-      payload
-    };
-  },
-
-  // 🌐 Stripe - PaymentIntent (cartões globais)
-  async processStripe(amount: number, currency: string, metadata: Record<string, string>) {
-    const stripe = getStripe();
-    const amountCents = Math.round(amount * 100);
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: currency,
-      payment_method_types: ['card'],
-      metadata: {
-        hws_tenant: metadata.store_host || "hws",
-        ...metadata
-      }
-    });
-    console.log(`[STRIPE] PaymentIntent ${paymentIntent.id}: ${amount} ${currency.toUpperCase()}`);
-    return {
-      success: true,
-      status: "AWAITING_AUTHENTICATION",
-      gateway: "STRIPE",
-      client_secret: paymentIntent.client_secret,
-      transaction_id: paymentIntent.id
-    };
-  },
-
-  // 🌐 PayPal - Order (cria ordem de pagamento)
-  async processPaypal(orderId: string, amount: number, currency: string, description: string) {
-    const accessToken = Buffer.from(
-      `${credentials.internacional.paypal.client_id}:${credentials.internacional.paypal.client_secret}`
-    ).toString("base64");
-    const baseUrl = credentials.internacional.paypal.mode === 'live'
-      ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-
-    // Simulação: em produção faria POST /v2/checkout/orders
-    console.log(`[PAYPAL] Order created: ${amount} ${currency.toUpperCase()} - ${description}`);
-    return {
-      success: true,
-      status: "AWAITING_PAYER_ACTION",
-      gateway: "PAYPAL",
-      order_id: `PAYPAL-${Date.now()}`,
-      approval_url: `${baseUrl}/checkoutnow?token=HWS_SIMULATED_${orderId}`,
-      message: "Redirecionando para o portal PayPal..."
-    };
-  }
-};
-
-// ==========================================
-// 📋 Pending Orders (awaiting webhook confirm)
-// ==========================================
-interface PendingOrder {
-  orderId: string;
-  tenantId: string;
-  amount: number;
-  currency: string;
-  gateway: string;
-  scope: string;
-  status: "PENDING" | "PAID" | "FAILED";
-  metadata: Record<string, string>;
-  createdAt: string;
-}
-
-const pendingOrders = new Map<string, PendingOrder>();
 
 const app = express();
 
@@ -381,7 +186,7 @@ async function unsyncCaddyDomain(domain: string) {
 }
 
 // Dynamic in-memory database representing stores and main shopping hub under governance of Bluewhite Corporation Lda.
-const database: Record<string, Tenant> = {
+Object.assign(database, {
   "hws.com": {
     id: "hub",
     name: "Hub World Shopping",
@@ -450,7 +255,7 @@ const database: Record<string, Tenant> = {
       { id: 3, name: "Teclado Mecânico Matrix-X 60%", price: "5.800 MT", description: "Switches óticos ultrarrápidos, chapa de alumínio anodizado e iluminação neon customizada.", category: "Periféricos" }
     ]
   }
-};
+});
 
 /**
  * Flexible Tenant Host Resolver.
@@ -1298,86 +1103,9 @@ app.post("/api/v1/hws/dropshipping/checkout", (req, res) => {
 });
 
 // ==========================================
-// 💳 CHECKOUT UNIFICADO MULTI-GATEWAY
-// Processa pagamentos nacionais e internacionais
+// 💳 CHECKOUT — gerido pelo módulo modular
+// src/server/routes/checkout.ts (mounted at /api/v1/hws/checkout)
 // ==========================================
-
-// POST /api/v1/hws/checkout/process
-// Rota única que orquestra o gateway conforme escopo e método
-app.post("/api/v1/hws/checkout/process", async (req, res) => {
-  const { order_id, total_amount, metodo_escolhido, client_phone, scope, store_metadata, currency } = req.body;
-
-  if (!order_id || !total_amount || !metodo_escolhido || !scope) {
-    return res.status(400).json({
-      success: false,
-      error: "Campos obrigatórios: order_id, total_amount, metodo_escolhido, scope"
-    });
-  }
-
-  try {
-    let result;
-
-    if (scope === "NACIONAL") {
-      if (metodo_escolhido === "MPESA") {
-        if (!client_phone) {
-          return res.status(400).json({ success: false, error: "Telefone obrigatório para M-Pesa." });
-        }
-        result = await paymentService.processMpesa(order_id, client_phone, total_amount);
-      } else if (metodo_escolhido === "EMOLA") {
-        if (!client_phone) {
-          return res.status(400).json({ success: false, error: "Telefone obrigatório para e-Mola." });
-        }
-        result = await paymentService.processEmola(order_id, client_phone, total_amount);
-      } else {
-        return res.status(400).json({ success: false, error: "Método nacional inválido. Use: MPESA, EMOLA" });
-      }
-    } else if (scope === "INTERNACIONAL") {
-      if (metodo_escolhido === "STRIPE") {
-        result = await paymentService.processStripe(total_amount, currency || "usd", store_metadata || {});
-      } else if (metodo_escolhido === "PAYPAL") {
-        result = await paymentService.processPaypal(order_id, total_amount, currency || "usd",
-          store_metadata?.description || "Compra HWS");
-      } else {
-        return res.status(400).json({ success: false, error: "Método internacional inválido. Use: STRIPE, PAYPAL" });
-      }
-    } else {
-      return res.status(400).json({ success: false, error: "Scope inválido. Use: NACIONAL, INTERNACIONAL" });
-    }
-
-    // Regista a transação no financeiro corporativo
-    financeiroCorporativo.caixaBancarioPendente += total_amount;
-
-    // Cria ordem pendente (aguardando confirmação do webhook)
-    const pendingId = result.transaction_id || result.reference || order_id;
-    pendingOrders.set(pendingId, {
-      orderId: order_id,
-      tenantId: store_metadata?.store_host || "hws",
-      amount: total_amount,
-      currency: currency || "MZN",
-      gateway: metodo_escolhido,
-      scope,
-      status: "PENDING",
-      metadata: store_metadata || {},
-      createdAt: new Date().toISOString()
-    });
-
-    res.json({
-      success: true,
-      scope,
-      method: metodo_escolhido,
-      order_id,
-      transaction: result
-    });
-
-  } catch (error: any) {
-    console.error(`[CHECKOUT ERROR] ${error.message}`);
-    res.status(500).json({
-      success: false,
-      error: `Falha no processamento: ${error.message}`,
-      gateway: metodo_escolhido
-    });
-  }
-});
 
 // GET /api/v1/hws/payments/methods
 // Lista métodos de pagamento disponíveis por escopo
@@ -1422,77 +1150,10 @@ app.get("/api/v1/hws/payments/methods", (_req, res) => {
 });
 
 // ==========================================
-// 🇲🇿 WEBHOOK M-PESA (Retorno da Vodacom IPG)
-// A Vodacom chama este endpoint quando o cliente
-// confirma o PIN no telemóvel
+// 🇲🇿 WEBHOOK M-PESA — gerido pelo módulo modular
+// src/server/controllers/webhookController.ts
+// src/server/routes/webhooks.ts (mounted at /api/v1/hws/webhooks)
 // ==========================================
-app.post("/api/v1/hws/payments/mpesa/callback", (req, res) => {
-  const {
-    output_ResponseCode,
-    output_ResponseDesc,
-    output_TransactionID,
-    input_TransactionReference,
-    input_ThirdPartyReference
-  } = req.body;
-
-  console.log(`[WEBHOOK M-PESA] Callback recebido. Ref: ${input_TransactionReference || input_ThirdPartyReference}`);
-
-  // "INS-0" = sucesso no protocolo M-Pesa (Vodacom)
-  if (output_ResponseCode === "INS-0" || output_ResponseCode === "0") {
-    const ref = input_TransactionReference || input_ThirdPartyReference;
-
-    // Atualiza ordem pendente
-    if (ref && pendingOrders.has(ref)) {
-      const order = pendingOrders.get(ref)!;
-      order.status = "PAID";
-
-      // Split triplo automático (Moçambique - MZN)
-      const val = order.amount;
-      const commissionRate = 0.025; // 2.5% taxa M-Pesa + Bluewhite
-      const ivaRate = 0.16;
-      const fee = Math.round(val * commissionRate);
-      const netAmount = val - fee;
-      const ivaAmount = Math.round(fee * ivaRate);
-
-      financeiroCorporativo.caixaBancarioPendente += netAmount;
-      financeiroCorporativo.comissoesRetidasTotal += fee;
-      financeiroCorporativo.ivaLiquidadoTotal += ivaAmount;
-
-      // Atualiza vendas do lojista
-      const tenant = order.metadata?.store_host
-        ? Object.values(database).find(t =>
-            t.id === order.metadata.store_host || t.domain === order.metadata.store_host
-          )
-        : null;
-      if (tenant) {
-        tenant.accumulatedSales = (tenant.accumulatedSales || 0) + val;
-      }
-
-      console.log(`[SPLIT M-PESA] Ordem ${ref}: ${val} MZN pago`);
-      console.log(`  ├── Lojista: ${netAmount} MZN`);
-      console.log(`  ├── Comissão Bluewhite: ${fee} MZN`);
-      console.log(`  └── IVA (${ivaRate * 100}%): ${ivaAmount} MZN`);
-    }
-
-    return res.status(200).json({
-      status: "SUCCESS",
-      message: "Callback M-Pesa processado. Split executado.",
-      output_TransactionID
-    });
-  }
-
-  // Transação falhou ou cancelada pelo cliente
-  const failedRef = input_TransactionReference || input_ThirdPartyReference;
-  if (failedRef && pendingOrders.has(failedRef)) {
-    pendingOrders.get(failedRef)!.status = "FAILED";
-  }
-
-  console.log(`[M-PESA] Transação não concluída: ${output_ResponseDesc || output_ResponseCode}`);
-  return res.status(200).json({
-    status: "FAILED",
-    message: output_ResponseDesc || "Transação não concluída pelo cliente."
-  });
-});
 
 // GET /api/v1/hws/payments/orders/:id
 // Consulta o estado de uma ordem de pagamento
@@ -1522,6 +1183,10 @@ app.get("/health", (_req, res) => {
 
 // Setup Vite & static assets rendering
 async function startServer() {
+  // Mount modular routes (ANTES do Vite middleware)
+  app.use("/api/v1/hws/checkout", checkoutRoutes);
+  app.use("/api/v1/hws/webhooks", webhookRoutes);
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
