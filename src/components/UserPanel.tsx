@@ -12,6 +12,26 @@ interface PanelUser {
 }
 
 const LS_KEY = "hws_user_id";
+const LS_USERS = "hws_users_local";
+
+function generateId(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "HWS-";
+  for (let i = 0; i < 8; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+function getLocalUsers(): Record<string, PanelUser> {
+  try {
+    return JSON.parse(localStorage.getItem(LS_USERS) || "{}");
+  } catch { return {}; }
+}
+
+function saveLocalUser(user: PanelUser) {
+  const all = getLocalUsers();
+  all[user.id] = user;
+  localStorage.setItem(LS_USERS, JSON.stringify(all));
+}
 
 export default function UserPanel({ staticMode }: { staticMode: boolean }) {
   const [registeredUser, setRegisteredUser] = useState<PanelUser | null>(null);
@@ -27,21 +47,33 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY);
-    if (saved && !staticMode) {
-      fetch(`/api/v1/users/profile/${saved}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.success) {
-            setRegisteredUser(d.user);
-            setLat(String(d.user.latitude ?? ""));
-            setLon(String(d.user.longitude ?? ""));
-            setPhone(d.user.phone ?? "");
-          } else {
-            localStorage.removeItem(LS_KEY);
-          }
-        })
-        .catch(() => {});
+    if (!saved) return;
+    if (staticMode) {
+      const all = getLocalUsers();
+      const u = all[saved];
+      if (u) {
+        setRegisteredUser(u);
+        setLat(String(u.latitude ?? ""));
+        setLon(String(u.longitude ?? ""));
+        setPhone(u.phone ?? "");
+      } else {
+        localStorage.removeItem(LS_KEY);
+      }
+      return;
     }
+    fetch(`/api/v1/users/profile/${saved}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setRegisteredUser(d.user);
+          setLat(String(d.user.latitude ?? ""));
+          setLon(String(d.user.longitude ?? ""));
+          setPhone(d.user.phone ?? "");
+        } else {
+          localStorage.removeItem(LS_KEY);
+        }
+      })
+      .catch(() => {});
   }, [staticMode]);
 
   const showMsg = (text: string, type: "success" | "error") => {
@@ -53,6 +85,34 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
   const handleRegister = async () => {
     if (!registerForm.name || !registerForm.email) return;
     setLoading(true);
+    if (staticMode) {
+      const all = getLocalUsers();
+      const exists = Object.values(all).find((u) => u.email === registerForm.email.toLowerCase().trim());
+      if (exists) {
+        localStorage.setItem(LS_KEY, exists.id);
+        setRegisteredUser(exists);
+        setShowRegister(false);
+        showMsg(`Bem-vindo de volta, ${exists.name}!`, "success");
+        setLoading(false);
+        return;
+      }
+      const id = generateId();
+      const user: PanelUser = {
+        id,
+        name: registerForm.name,
+        email: registerForm.email.toLowerCase().trim(),
+        phone: registerForm.phone || undefined,
+        createdAt: new Date().toISOString(),
+        storeIds: [],
+      };
+      saveLocalUser(user);
+      localStorage.setItem(LS_KEY, id);
+      setRegisteredUser(user);
+      setShowRegister(false);
+      showMsg(`Conta criada! Seu ID: ${id}`, "success");
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch("/api/v1/users/register", {
         method: "POST",
@@ -83,6 +143,23 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
   const handleLogin = async () => {
     if (!loginId.trim()) return;
     setLoading(true);
+    if (staticMode) {
+      const all = getLocalUsers();
+      const u = all[loginId.trim().toUpperCase()];
+      if (!u) {
+        showMsg("ID não encontrado. Verifique o código ou registe-se primeiro.", "error");
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem(LS_KEY, u.id);
+      setRegisteredUser(u);
+      setLat(String(u.latitude ?? ""));
+      setLon(String(u.longitude ?? ""));
+      setPhone(u.phone ?? "");
+      showMsg(`Bem-vindo(a), ${u.name}!`, "success");
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch("/api/v1/users/login", {
         method: "POST",
@@ -110,6 +187,17 @@ export default function UserPanel({ staticMode }: { staticMode: boolean }) {
   const handleSync = async () => {
     if (!registeredUser) return;
     setLoading(true);
+    const updated = { ...registeredUser };
+    if (lat) updated.latitude = parseFloat(lat);
+    if (lon) updated.longitude = parseFloat(lon);
+    if (phone) updated.phone = phone;
+    if (staticMode) {
+      saveLocalUser(updated);
+      setRegisteredUser(updated);
+      showMsg("Localização e dados sincronizados!", "success");
+      setLoading(false);
+      return;
+    }
     try {
       const body: any = { id: registeredUser.id };
       if (lat) body.latitude = parseFloat(lat);
