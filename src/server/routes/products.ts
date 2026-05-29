@@ -1,14 +1,13 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 import { prisma } from "../prisma";
 import { isUsingPrisma } from "../db";
 import { database } from "../state";
+import { isOssConfigured, uploadToOss } from "../oss";
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, path.join(process.cwd(), "uploads")),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -21,6 +20,23 @@ const upload = multer({
 
 const router = Router();
 
+async function resolveImageUrl(file: Express.Multer.File | undefined): Promise<string | null> {
+  if (!file) return null;
+
+  if (isOssConfigured()) {
+    const ext = path.extname(file.originalname) || ".jpg";
+    const key = `products/${Date.now()}-${crypto.randomUUID()}${ext}`;
+    return await uploadToOss(key, file.buffer, file.mimetype);
+  }
+
+  const fs = await import("fs/promises");
+  const destDir = path.join(process.cwd(), "uploads");
+  await fs.mkdir(destDir, { recursive: true });
+  const filename = `${Date.now()}-${file.originalname}`;
+  await fs.writeFile(path.join(destDir, filename), file.buffer);
+  return `/uploads/${filename}`;
+}
+
 router.post("/add", upload.single("photo"), async (req: Request, res: Response) => {
   const { tenantId, name, description, price } = req.body;
 
@@ -28,17 +44,17 @@ router.post("/add", upload.single("photo"), async (req: Request, res: Response) 
     return res.status(400).json({ success: false, error: "Campos obrigatórios: tenantId, name, price" });
   }
 
-  const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
-  if (!isUsingPrisma()) {
-    const tenant = Object.values(database).find((t: any) => t.id === tenantId);
-    if (!tenant) return res.status(404).json({ success: false, error: "Loja não encontrada." });
-    const p = { id: (tenant as any).products.length + 1, name, price: `${parseFloat(price).toFixed(2)} MT`, description: description || "", category: "Destaques", imageUrl };
-    (tenant as any).products.unshift(p);
-    return res.status(201).json({ success: true, message: "Produto adicionado (modo dev).", product: p });
-  }
-
   try {
+    const imageUrl = await resolveImageUrl(req.file);
+
+    if (!isUsingPrisma()) {
+      const tenant = Object.values(database).find((t: any) => t.id === tenantId);
+      if (!tenant) return res.status(404).json({ success: false, error: "Loja não encontrada." });
+      const p = { id: (tenant as any).products.length + 1, name, price: `${parseFloat(price).toFixed(2)} MT`, description: description || "", category: "Destaques", imageUrl };
+      (tenant as any).products.unshift(p);
+      return res.status(201).json({ success: true, message: "Produto adicionado (modo dev).", product: p });
+    }
+
     const product = await prisma.product.create({
       data: {
         tenantId,

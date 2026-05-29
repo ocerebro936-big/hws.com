@@ -45,8 +45,12 @@ services:
       APP_URL: https://${HWS_DOMAIN:-hws.com}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-ocerebro936@gmail.com}
       ADMIN_WALLET: ${ADMIN_WALLET:-0xf44910f8F13BC4B485bb9ce2406d83a3F0Ada1F2}
-    volumes:
-      - shared_uploads:/app/uploads
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-}
+      OSS_REGION: ${OSS_REGION:-us-east-1}
+      OSS_BUCKET: ${OSS_BUCKET:-hws-uploads}
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-}
+      OSS_CDN_URL: ${OSS_CDN_URL:-}
     networks:
       - hws-cloud-network
     depends_on:
