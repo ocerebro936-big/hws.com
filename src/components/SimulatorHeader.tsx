@@ -249,9 +249,9 @@ export default function SimulatorHeader({
           </span>
           <div className="flex items-center gap-1.5 font-mono text-slate-300">
             <Server size={14} className="text-emerald-400" />
-            <span className="font-semibold text-slate-100">HWS Sandbox:</span>
+            <span className="font-semibold text-slate-100">Hub World Shopping</span>
             <span className="text-slate-400 max-w-[150px] md:max-w-none truncate sm:inline hidden">
-              Simulando Roteamento Dinâmico Multi-Tenant
+              Roteamento Dinâmico Multi-Tenant
             </span>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function SimulatorHeader({
             className={`bg-transparent text-emerald-450 font-medium tracking-tight text-xs outline-none w-full placeholder:text-slate-800 select-all py-0.5 ${
               inputError ? 'text-red-400 font-bold' : ''
             }`}
-            placeholder="hws.com"
+            placeholder="moda.hws.com"
           />
           <button
             type="submit"
