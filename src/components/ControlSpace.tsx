@@ -67,6 +67,13 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
     setPayoutLoading(true);
     setPayoutResult(null);
     try {
+      if (staticMode) {
+        await new Promise((r) => setTimeout(r, 800));
+        setAdRevenue(0);
+        setPayoutResult({ success: true, message: "Liquidação simulada em modo estático — Ad Revenue debitado.", tx: "0xsimulated_static_mode_tx_hash" });
+        setPayoutLoading(false);
+        return;
+      }
       const res = await fetch("/api/v1/hws/admin/payout/crypto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,7 +90,7 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
     } finally {
       setPayoutLoading(false);
     }
-  }, [adRevenue, financeiro]);
+  }, [adRevenue, financeiro, staticMode]);
 
   const copyWallet = useCallback(() => {
     navigator.clipboard.writeText("0xf44910f8F13BC4B485bb9ce2406d83a3F0Ada1F2");
