@@ -11,7 +11,8 @@ export const database: Record<string, Tenant> = {};
 export const financeiroCorporativo = {
   caixaBancarioPendente: 15000,
   comissoesRetidasTotal: 84300,
-  ivaLiquidadoTotal: 13488
+  ivaLiquidadoTotal: 13488,
+  adRevenue: 32450
 };
 
 export const registrarMockDns: Record<string, { available: boolean; ownerTenantId?: string }> = {

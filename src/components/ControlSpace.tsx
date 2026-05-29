@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Tenant } from "../types";
 import { getStaticTenants } from "../staticData";
 
@@ -40,7 +40,56 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = false; // será verificado por backend em produção
+  const [walletCopied, setWalletCopied] = useState(false);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutResult, setPayoutResult] = useState<{ success: boolean; message: string; tx?: string } | null>(null);
+  const [adRevenue, setAdRevenue] = useState(32450);
+  const [financeiro, setFinanceiro] = useState<any>(null);
+
+  const isAdmin = true; // console mestre do admin
+
+  useEffect(() => {
+    if (!staticMode) {
+      fetch("/api/v1/hws/admin/financeiro")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) {
+            setFinanceiro(data.financeiro);
+            setAdRevenue(data.financeiro.adRevenue || 0);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [staticMode]);
+
+  const handlePayout = useCallback(async () => {
+    if (!confirm("Deseja liquidar o saldo de publicidade acumulado e enviar diretamente para a sua MetaMask (0xf449...a1F2)?")) return;
+    setPayoutLoading(true);
+    setPayoutResult(null);
+    try {
+      const res = await fetch("/api/v1/hws/admin/payout/crypto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_email: ADMIN_EMAIL, amount_to_withdraw: adRevenue }),
+      });
+      const data = await res.json();
+      setPayoutResult(data);
+      if (data.success) {
+        setAdRevenue(data.saldo_restante || 0);
+        if (financeiro) setFinanceiro({ ...financeiro, adRevenue: data.saldo_restante || 0 });
+      }
+    } catch {
+      setPayoutResult({ success: false, message: "Falha na comunicação com o servidor." });
+    } finally {
+      setPayoutLoading(false);
+    }
+  }, [adRevenue, financeiro]);
+
+  const copyWallet = useCallback(() => {
+    navigator.clipboard.writeText("0xf44910f8F13BC4B485bb9ce2406d83a3F0Ada1F2");
+    setWalletCopied(true);
+    setTimeout(() => setWalletCopied(false), 2000);
+  }, []);
 
   const activeTenants = tenants.filter((t) => t.type === "store" && t.licenseStatus === "PAID");
   const allProducts = activeTenants.flatMap((t) =>
@@ -199,30 +248,79 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
       {activeTab === "billing" && (
         <div className="space-y-6">
 
-          {/* Admin Master Console - visível apenas para admin */}
+          {/* Admin Master Console — exclusivo para ocerebro936@gmail.com */}
           {isAdmin && (
             <section className="bg-[#131a26] border-2 border-dashed border-[#4f46e5]/40 rounded-xl p-5 md:p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm md:text-base font-bold text-white flex items-center gap-2">
-                  🛡️ Global Master Console
-                  <span className="text-[10px] font-normal text-slate-400 font-mono">(Acesso Exclusivo)</span>
-                </h2>
-                <span className="text-[10px] bg-[#4f46e5]/20 text-indigo-300 px-2.5 py-1 rounded font-mono">{ADMIN_EMAIL}</span>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-[#1e293b] pb-4">
+                <div>
+                  <h2 className="text-sm md:text-base font-bold text-white flex items-center gap-2">
+                    🛡️ Global Master Console
+                    <span className="text-[10px] font-normal text-slate-400 font-mono">(Acesso Privado)</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Gerenciamento de splits de pagamento e saídas Web3.</p>
+                </div>
+                <div className="flex items-center gap-3 bg-[#0b0f19] border border-[#1e293b] px-3 py-2 rounded-lg">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="text-left">
+                    <span className="text-[10px] text-slate-500 block font-mono">METAMASK GATEWAY</span>
+                    <span className="text-xs text-slate-300 font-mono">0xf449...a1F2</span>
+                  </div>
+                  <button
+                    onClick={copyWallet}
+                    className="text-slate-500 hover:text-[#38bdf8] text-xs p-1 cursor-pointer"
+                    title={walletCopied ? "Copiado!" : "Copiar Endereço Completo"}
+                  >
+                    {walletCopied ? "✓" : "📋"}
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-[#0b0f19] border border-[#1e293b] p-4 rounded-lg">
-                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">Volume Bruto do Shopping (GMV)</span>
+                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">Volume Bruto (GMV)</span>
                   <span className="text-lg md:text-xl font-bold text-white font-mono">{totalGmv.toLocaleString("pt-PT")},00 MT</span>
                 </div>
                 <div className="bg-[#0b0f19] border border-[#1e293b] p-4 rounded-lg">
-                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">Lucro de Comissões Retidas (3%)</span>
-                  <span className="text-lg md:text-xl font-bold text-emerald-400 font-mono">{totalCommission.toLocaleString("pt-PT")},00 MT</span>
+                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">Comissões de Lojas (3%)</span>
+                  <span className="text-lg md:text-xl font-bold text-white font-mono">{totalCommission.toLocaleString("pt-PT")},00 MT</span>
                 </div>
+
+                <div className="bg-[#0b0f19] border border-[#38bdf8]/40 p-4 rounded-lg flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] text-[#38bdf8] block mb-1 font-bold">Anúncios Externos (Ad Revenue)</span>
+                    <span className="text-lg md:text-xl font-black text-emerald-400 font-mono">{adRevenue.toLocaleString("pt-PT")},00 MT</span>
+                  </div>
+                  <button
+                    onClick={handlePayout}
+                    disabled={payoutLoading || adRevenue <= 0}
+                    className="w-full mt-3 bg-[#4f46e5]/20 hover:bg-[#4f46e5] text-indigo-300 hover:text-white border border-[#4f46e5]/40 text-[11px] font-bold py-1.5 rounded transition-all font-mono disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {payoutLoading ? "A processar..." : "SACAR VIA METAMASK ↗️"}
+                  </button>
+                </div>
+
                 <div className="bg-[#0b0f19] border border-[#1e293b] p-4 rounded-lg">
-                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">IVA Total Acumulado Mz (16%)</span>
-                  <span className="text-lg md:text-xl font-bold text-[#38bdf8] font-mono">{totalIva.toLocaleString("pt-PT")},00 MT</span>
+                  <span className="text-[11px] text-slate-400 block mb-1 font-mono">IVA Acumulado (16%)</span>
+                  <span className="text-lg md:text-xl font-bold text-slate-500 font-mono">{totalIva.toLocaleString("pt-PT")},00 MT</span>
                 </div>
               </div>
+
+              {payoutResult && (
+                <div className={`mt-4 p-3 rounded-lg text-xs font-mono ${
+                  payoutResult.success
+                    ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                    : "bg-red-500/10 border border-red-500/30 text-red-400"
+                }`}>
+                  {payoutResult.success ? (
+                    <>
+                      <p className="font-bold mb-1">✓ {payoutResult.message}</p>
+                      <p className="text-[11px] opacity-80">TX: {payoutResult.tx || "broadcasted"}</p>
+                    </>
+                  ) : (
+                    <p>✗ {payoutResult.message}</p>
+                  )}
+                </div>
+              )}
             </section>
           )}
 

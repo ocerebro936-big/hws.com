@@ -18,6 +18,7 @@ import checkoutRoutes from "./src/server/routes/checkout";
 import subscriptionRoutes from "./src/server/routes/subscriptions";
 import authRoutes from "./src/server/routes/auth";
 import productRoutes from "./src/server/routes/products";
+import payoutRoutes from "./src/server/routes/payouts";
 import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
 
@@ -1198,6 +1199,7 @@ async function startServer() {
   app.use("/api/v1/hws/subscriptions", subscriptionRoutes);
   app.use("/api/v1/auth", authRoutes);
   app.use("/api/v1/products", productRoutes);
+  app.use("/api/v1/hws", payoutRoutes);
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)

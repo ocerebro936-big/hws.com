@@ -192,6 +192,16 @@ export function addToCaixa(amount: number) {
   financeiroCorporativo.caixaBancarioPendente += amount;
 }
 
+export function getAdRevenue() {
+  return financeiroCorporativo.adRevenue;
+}
+
+export function deductAdRevenue(amount: number) {
+  if (amount > financeiroCorporativo.adRevenue) return false;
+  financeiroCorporativo.adRevenue -= amount;
+  return true;
+}
+
 export async function closeDb() {
   if (usePrismaFlag) {
     await prisma.$disconnect();

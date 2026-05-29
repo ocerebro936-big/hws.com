@@ -23,14 +23,15 @@ enum BillingCycle {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  walletAddress String?  // Endereço MetaMask para payout Web3
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  tenants   Tenant[]
+  tenants       Tenant[]
 }
 
 model PackagePlan {
