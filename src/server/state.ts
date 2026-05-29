@@ -30,6 +30,8 @@ export const pendingOrders = new Map<string, PendingOrder>();
 
 export const adCampaigns: AdCampaign[] = [];
 
+export const storeVisits: Record<string, { storeName: string; visits: number; lastVisit: string | null }> = {};
+
 // Seed data: campanhas de exemplo para demonstração
 adCampaigns.push(
   {

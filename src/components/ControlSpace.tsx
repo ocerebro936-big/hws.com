@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Tenant } from "../types";
 import { getStaticTenants } from "../staticData";
+import ImmersiveFeed from "./ImmersiveFeed";
 
 interface ControlSpaceProps {
   tenants: Tenant[];
@@ -182,36 +183,14 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
         ))}
       </div>
 
-      {/* Tab 1: Feed */}
+      {/* Tab 1: Feed Imersivo */}
       {activeTab === "feed" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {feedProducts.map((p, i) => (
-            <div
-              key={i}
-              className="bg-[#131a26] border border-[#1e293b] rounded-xl p-4 md:p-5 flex flex-col justify-between hover:border-[#4f46e5] transition-all"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-[10px] bg-[#4f46e5]/10 text-[#6366f1] border border-[#4f46e5]/20 px-2 py-0.5 rounded font-mono">
-                    {(p as any).storeName || "Loja"}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">{(p as any).category || "Geral"}</span>
-                </div>
-                <h3 className="text-sm md:text-base font-bold text-white mb-1">{p.name}</h3>
-                <p className="text-[11px] text-slate-400 mb-3">{p.description || "Produto em destaque no ecossistema HWS."}</p>
-              </div>
-              <div className="flex justify-between items-center pt-3 border-t border-[#1e293b]">
-                <span className="font-mono text-base md:text-lg font-bold text-[#38bdf8]">{p.price}</span>
-                <button
-                  onClick={() => onSwitchTenant((p as any).storeId)}
-                  className="bg-[#4f46e5] hover:bg-[#3730a3] text-white text-[11px] font-medium px-3 py-2 rounded-lg transition-colors flex items-center gap-1"
-                >
-                  Entrar na Loja ➡️
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <ImmersiveFeed
+          tenants={tenants}
+          onSwitchTenant={onSwitchTenant}
+          onAddLog={onAddLog}
+          staticMode={staticMode}
+        />
       )}
 
       {/* Tab 2: Chat */}
