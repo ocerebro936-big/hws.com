@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { credentials } from "../config/credentials";
 import { getStripe } from "../stripe";
-import { pendingOrders } from "../state";
+import { createPendingOrder, createPayment } from "../db";
 
 const router = Router();
 
@@ -89,17 +89,29 @@ router.post("/process", async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: "Scope inválido." });
     }
 
-    const pendingId = result.transaction_id || result.reference || order_id;
-    pendingOrders.set(pendingId, {
+    const ref = result.transaction_id || result.reference || order_id;
+
+    await createPendingOrder({
       orderId: order_id,
+      tenantHost: store_metadata?.store_host || "hws",
+      tenantName: store_metadata?.store_name || "HWS",
+      totalAmount: total_amount,
+      metodoEscolhido: metodo_escolhido,
+      scope,
+      clientPhone: client_phone,
+      gateway: metodo_escolhido,
+      reference: ref,
+    });
+
+    await createPayment({
       tenantId: store_metadata?.store_host || "hws",
+      orderId: order_id,
       amount: total_amount,
-      currency: currency || "MZN",
       gateway: metodo_escolhido,
       scope,
-      status: "PENDING",
-      metadata: store_metadata || {},
-      createdAt: new Date().toISOString()
+      reference: ref,
+      mpesaTransactionId: result.transaction_id,
+      stripePaymentIntent: metodo_escolhido === "STRIPE" ? result.transaction_id : undefined,
     });
 
     res.json({ success: true, scope, method: metodo_escolhido, order_id, transaction: result });

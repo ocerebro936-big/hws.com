@@ -54,6 +54,13 @@ export async function getTenantByHost(host: string) {
   return (database as any)[host] || null;
 }
 
+export async function getTenantById(id: string) {
+  if (usePrismaFlag) {
+    return prisma.tenant.findUnique({ where: { id } });
+  }
+  return Object.values(database).find((t: any) => t.id === id) || null;
+}
+
 export async function getAllTenants() {
   if (usePrismaFlag) {
     return prisma.tenant.findMany({ orderBy: { createdAt: "desc" } });
@@ -149,14 +156,31 @@ export async function updatePaymentStatus(reference: string, status: string, mpe
   return null;
 }
 
+export async function getPaymentByReference(reference: string) {
+  if (usePrismaFlag) {
+    return prisma.payment.findUnique({ where: { reference } });
+  }
+  return null;
+}
+
+export async function markPaymentFailed(reference: string) {
+  if (usePrismaFlag) {
+    return prisma.payment.update({ where: { reference }, data: { status: "FAILED" } });
+  }
+  return null;
+}
+
 // Financeiro helpers
 export function getFinanceiro() {
   return financeiroCorporativo;
 }
 
-export function addCommission(amount: number) {
-  financeiroCorporativo.comissoesRetidasTotal += amount;
-  financeiroCorporativo.ivaLiquidadoTotal += Math.round(amount * 0.16);
+export function addCommission(fee: number) {
+  financeiroCorporativo.comissoesRetidasTotal += fee;
+  financeiroCorporativo.ivaLiquidadoTotal += Math.round(fee * 0.16);
+}
+
+export function addToCaixa(amount: number) {
   financeiroCorporativo.caixaBancarioPendente += amount;
 }
 

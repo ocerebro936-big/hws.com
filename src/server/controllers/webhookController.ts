@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
 import { getStripe } from "../stripe";
 import { credentials } from "../config/credentials";
-import { financeiroCorporativo, database, pendingOrders } from "../state";
-import type { PendingOrder } from "../config/database";
+import { addCommission, addToCaixa, getPendingOrder, updatePendingOrderStatus, updateTenantBalance, updatePaymentStatus, getTenantById } from "../db";
 
 const IVA_RATE = 0.16;
 
-export function handleMpesaCallback(req: Request, res: Response) {
+export async function handleMpesaCallback(req: Request, res: Response) {
   const {
     output_ResponseCode,
     output_ResponseDesc,
@@ -15,35 +14,35 @@ export function handleMpesaCallback(req: Request, res: Response) {
     input_ThirdPartyReference
   } = req.body;
 
-  console.log(`[WEBHOOK M-PESA] Callback recebido. Ref: ${input_TransactionReference || input_ThirdPartyReference}`);
+  const ref = input_TransactionReference || input_ThirdPartyReference;
+  console.log(`[WEBHOOK M-PESA] Callback recebido. Ref: ${ref}`);
 
   if (output_ResponseCode === "INS-0" || output_ResponseCode === "0") {
-    const ref = input_TransactionReference || input_ThirdPartyReference;
+    if (ref) {
+      const order = await getPendingOrder(ref);
+      if (order) {
+        await updatePendingOrderStatus(ref, "PAID");
 
-    if (ref && pendingOrders.has(ref)) {
-      const order = pendingOrders.get(ref)!;
-      order.status = "PAID";
+        const val = "amount" in order ? (order as any).amount : 0;
+        const commissionRate = 0.025;
+        const fee = Math.round(val * commissionRate);
+        const netAmount = val - fee;
+        const ivaAmount = Math.round(fee * IVA_RATE);
 
-      const val = order.amount;
-      const commissionRate = 0.025;
-      const fee = Math.round(val * commissionRate);
-      const netAmount = val - fee;
-      const ivaAmount = Math.round(fee * IVA_RATE);
+        addToCaixa(netAmount);
+        addCommission(fee);
 
-      financeiroCorporativo.caixaBancarioPendente += netAmount;
-      financeiroCorporativo.comissoesRetidasTotal += fee;
-      financeiroCorporativo.ivaLiquidadoTotal += ivaAmount;
+        const tenantHost = "tenantHost" in order ? (order as any).tenantHost
+          : "metadata" in order && (order as any).metadata?.store_host
+          ? (order as any).metadata.store_host : null;
+        if (tenantHost) {
+          await updateTenantBalance(tenantHost, val);
+        }
 
-      const tenant = order.metadata?.store_host
-        ? Object.values(database).find(t =>
-            t.id === order.metadata.store_host || t.domain === order.metadata.store_host
-          )
-        : null;
-      if (tenant) {
-        tenant.accumulatedSales = (tenant.accumulatedSales || 0) + val;
+        await updatePaymentStatus(ref, "PAID", output_TransactionID);
+
+        console.log(`[SPLIT M-PESA] ${ref}: ${val} MZN | Lojista: ${netAmount} | Bluewhite: ${fee} | IVA: ${ivaAmount}`);
       }
-
-      console.log(`[SPLIT M-PESA] ${ref}: ${val} MZN | Lojista: ${netAmount} | Bluewhite: ${fee} | IVA: ${ivaAmount}`);
     }
 
     return res.status(200).json({
@@ -53,9 +52,9 @@ export function handleMpesaCallback(req: Request, res: Response) {
     });
   }
 
-  const failedRef = input_TransactionReference || input_ThirdPartyReference;
-  if (failedRef && pendingOrders.has(failedRef)) {
-    pendingOrders.get(failedRef)!.status = "FAILED";
+  if (ref) {
+    await updatePendingOrderStatus(ref, "FAILED");
+    await updatePaymentStatus(ref, "FAILED");
   }
 
   console.log(`[M-PESA] Transação não concluída: ${output_ResponseDesc || output_ResponseCode}`);
@@ -93,18 +92,19 @@ export async function handleStripeWebhook(req: Request, res: Response) {
       const ivaAmount = fee * IVA_RATE;
       const amountMzn = Math.round(amount * 64);
 
-      financeiroCorporativo.caixaBancarioPendente += amountMzn;
-      financeiroCorporativo.comissoesRetidasTotal += Math.round(fee * 64);
-      financeiroCorporativo.ivaLiquidadoTotal += Math.round(ivaAmount * 64);
+      addToCaixa(amountMzn);
+      addCommission(Math.round(fee * 64));
 
-      if (pendingOrders.has(pi.id)) {
-        const order = pendingOrders.get(pi.id)!;
-        order.status = "PAID";
-        const tenant = Object.values(database).find(t => t.id === order.tenantId);
-        if (tenant) {
-          tenant.accumulatedSales = (tenant.accumulatedSales || 0) + amountMzn;
+      const order = await getPendingOrder(pi.id);
+      if (order) {
+        const tenantId = "tenantId" in order ? (order as any).tenantId : null;
+        if (tenantId) {
+          await updateTenantBalance(tenantId, amountMzn);
         }
+        await updatePendingOrderStatus(pi.id, "PAID");
       }
+
+      await updatePaymentStatus(pi.id, "PAID");
 
       console.log(`[SPLIT STRIPE] Líquido: $${netAmount.toFixed(2)} | Bluewhite: $${fee.toFixed(2)}`);
       return res.status(200).json({ received: true });
@@ -112,7 +112,8 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
     if (event.type === "payment_intent.payment_failed") {
       const pi = event.data.object;
-      if (pendingOrders.has(pi.id)) pendingOrders.get(pi.id)!.status = "FAILED";
+      await updatePendingOrderStatus(pi.id, "FAILED");
+      await updatePaymentStatus(pi.id, "FAILED");
       console.log(`[STRIPE] Falhou: ${pi.id}`);
       return res.status(200).json({ received: true });
     }

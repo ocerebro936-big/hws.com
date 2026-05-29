@@ -3,8 +3,11 @@ import { handleMpesaCallback, handleStripeWebhook } from "../controllers/webhook
 
 const router = Router();
 
-router.post("/v1/mpesa/callback", handleMpesaCallback);
+const asyncHandler = (fn: Function) => (req: any, res: any, next: any) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 
-router.post("/v1/stripe/webhook", handleStripeWebhook);
+router.post("/v1/mpesa/callback", asyncHandler(handleMpesaCallback));
+
+router.post("/v1/stripe/webhook", asyncHandler(handleStripeWebhook));
 
 export default router;
