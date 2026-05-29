@@ -276,7 +276,7 @@ export default function App() {
             onClose={() => setShowControlSpace(false)}
           />
         ) : !currentTenant ? (
-          <LandingPage />
+          <LandingPage onEnterStore={() => handleSwitchTenant("hub")} />
         ) : currentTenant.type === 'hub' ? (
           <MainHub
             tenants={tenants}

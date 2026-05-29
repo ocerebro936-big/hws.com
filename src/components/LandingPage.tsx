@@ -96,7 +96,11 @@ const DOMINIOS = [
   { tipo: "Nacional (.co.mz, .mz)", preco: "2.500 MT/ano" },
 ];
 
-export default function LandingPage() {
+interface LandingPageProps {
+  onEnterStore?: () => void;
+}
+
+export default function LandingPage({ onEnterStore }: LandingPageProps) {
   const [showRegister, setShowRegister] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [paymentTenant, setPaymentTenant] = useState<{ id: string; name: string } | null>(null);
@@ -138,19 +142,25 @@ export default function LandingPage() {
               Crie a sua loja online com subdomínio próprio, domínio personalizado e
               pagamentos integrados — sem complicação técnica.
             </p>
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl mx-auto my-6">
               <button
-                onClick={() => handlePlanClick("HWS_LOJA_RENTAL")}
-                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/30 flex items-center gap-2 cursor-pointer"
+                onClick={onEnterStore}
+                className="flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-black rounded-xl transition-all duration-300 hover:scale-[1.03] uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.3)] cursor-pointer"
               >
-                🏪 Alugar Loja
+                <span>Entrar na Loja 🚀</span>
               </button>
-              <a
-                href="#planos"
-                className="px-6 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm rounded-xl transition-all border border-slate-700/50 cursor-pointer"
+              <button
+                onClick={() => setShowRegister(true)}
+                className="flex items-center justify-center gap-2 py-4 px-6 bg-gray-900 hover:bg-gray-800 text-emerald-400 font-black rounded-xl border border-emerald-500/30 transition-all duration-300 hover:scale-[1.03] uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(16,185,129,0.15)] cursor-pointer"
               >
-                Ver Planos
-              </a>
+                <span>Registar Empresa/Banca 🏢</span>
+              </button>
+              <button
+                onClick={() => document.getElementById("planos")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black rounded-xl transition-all duration-300 hover:scale-[1.03] uppercase tracking-wider text-sm shadow-[0_0_20px_rgba(245,158,11,0.3)] cursor-pointer"
+              >
+                <span>Ver os Preços 💎</span>
+              </button>
             </div>
           </div>
         </section>
@@ -290,10 +300,10 @@ export default function LandingPage() {
                 Crie a sua loja em menos de 2 minutos. Sem conhecimento técnico necessário.
               </p>
               <button
-                onClick={() => handlePlanClick("HWS_LOJA_RENTAL")}
-                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-emerald-600/25 flex items-center gap-2 mx-auto cursor-pointer"
+                onClick={() => setShowRegister(true)}
+                className="px-8 py-3 bg-gray-900 hover:bg-gray-800 text-emerald-400 font-bold text-sm rounded-xl border border-emerald-500/30 transition-all hover:scale-[1.02] shadow-[0_0_15px_rgba(16,185,129,0.15)] flex items-center gap-2 mx-auto cursor-pointer"
               >
-                🏪 Alugar Loja Agora
+                🏢 Registar Empresa/Banca Agora
               </button>
             </div>
           </div>
