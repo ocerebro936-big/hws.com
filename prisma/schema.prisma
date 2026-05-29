@@ -64,6 +64,7 @@ model Tenant {
   accumulatedBalance Float         @default(0.0)
   latitude           Float?        // Coordenadas para o motor de proximidade do feed
   longitude          Float?
+  niche              String?        // "luxury" | "tech" | "streetwear" — alimenta o gerador de CSS dinâmico
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 

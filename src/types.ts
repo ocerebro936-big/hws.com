@@ -36,6 +36,7 @@ export interface Tenant {
   customDomain?: string | null; // e.g. "vanguardmoda.com"
   plan?: 'Starter' | 'Pro' | 'Enterprise';
   accumulatedSales?: number; // accumulated revenue in MT digits
+  niche?: 'luxury' | 'tech' | 'streetwear';
 }
 
 export interface LogEntry {

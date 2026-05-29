@@ -30,6 +30,7 @@ export interface Tenant {
   accumulatedSales?: number;
   latitude?: number;
   longitude?: number;
+  niche?: string;
 }
 
 export interface DropshippingLink {

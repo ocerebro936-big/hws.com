@@ -20,6 +20,7 @@ import authRoutes from "./src/server/routes/auth";
 import productRoutes from "./src/server/routes/products";
 import payoutRoutes from "./src/server/routes/payouts";
 import adRoutes from "./src/server/routes/ads";
+import designRoutes from "./src/server/routes/design";
 import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
 
@@ -232,6 +233,7 @@ Object.assign(database, {
     customDomain: "vanguardmoda.com",
     plan: "Pro",
     accumulatedSales: 125000,
+    niche: "luxury",
     latitude: -25.9685,
     longitude: 32.5750,
     products: [
@@ -258,6 +260,7 @@ Object.assign(database, {
     customDomain: null,
     plan: "Starter",
     accumulatedSales: 42000,
+    niche: "tech",
     latitude: -25.9780,
     longitude: 32.5900,
     products: [
@@ -1233,6 +1236,7 @@ async function startServer() {
   app.use("/api/v1/ads", adRoutes);
   app.use("/api/v1/feed", adRoutes);
   app.use("/api/v1/traffic", adRoutes);
+  app.use("/api/v1/design", designRoutes);
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)

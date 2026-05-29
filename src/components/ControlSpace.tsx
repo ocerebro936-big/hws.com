@@ -13,29 +13,10 @@ interface ControlSpaceProps {
 
 const ADMIN_EMAIL = "ocerebro936@gmail.com";
 
-const AI_RESPONSES: Record<string, string> = {
-  dns: "Para configurar o seu DNS, aponte o registo A para o IP do servidor dedicado. O HWS valida o domínio automaticamente via API Caddy. Aguarde 5-10 min para propagação.",
-  tema: "Pode personalizar o tema na sua loja: temas disponíveis: Clean (claro), Dark (escuro) e Cyberpunk (neon). Aceda a Configurações > Aparência no seu painel.",
-  checkout: "Erros de checkout podem dever-se a: 1) Webhook não configurado no gateway 2) Saldo insuficiente 3) Comissão pendente. Verifique os logs em /api/v1/hws/webhooks.",
-  fatura: "O seu saldo disponível é calculado após dedução da comissão HWS (3%) e IVA (16%). O levantamento pode ser solicitado para conta BIM ou e-Mola.",
-  dominio: "Domínios .com: 1.200 MT/ano | .co.mz: 2.500 MT/ano. A ativação inclui SSL automático via Caddy e proxy reverso.",
-  default: "Olá! Sou o assistente automático da Bluewhite Corporation. Posso ajudar com DNS, temas, checkout, faturamento ou domínios. Digite a sua dúvida.",
-};
-
-function getAIResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes("dns")) return AI_RESPONSES.dns;
-  if (lower.includes("tema") || lower.includes("tema") || lower.includes("aparência")) return AI_RESPONSES.tema;
-  if (lower.includes("checkout") || lower.includes("pagamento") || lower.includes("erro")) return AI_RESPONSES.checkout;
-  if (lower.includes("fatura") || lower.includes("saldo") || lower.includes("levantamento")) return AI_RESPONSES.fatura;
-  if (lower.includes("domínio") || lower.includes("dominio") || lower.includes(".com") || lower.includes(".mz")) return AI_RESPONSES.dominio;
-  return AI_RESPONSES.default;
-}
-
 export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, onAddLog, staticMode, onClose }: ControlSpaceProps) {
-  const [activeTab, setActiveTab] = useState<"feed" | "support" | "billing">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "support" | "billing" | "design">("feed");
   const [chatMessages, setChatMessages] = useState<{ role: "bot" | "user"; text: string }[]>([
-    { role: "bot", text: AI_RESPONSES.default },
+    { role: "bot", text: "Olá! Sou o assistente de negócios da Bluewhite Corporation. Posso ajudar com DNS, temas, checkout, faturamento, domínios ou estratégias para escalar a sua loja. Digite a sua dúvida." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -122,14 +103,28 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  const handleChatSend = () => {
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const handleChatSend = async () => {
     const msg = chatInput.trim();
-    if (!msg) return;
-    setChatMessages((prev) => [...prev, { role: "user", text: msg }]);
+    if (!msg || chatLoading) return;
+    setChatLoading(true);
+    const updated = [...chatMessages, { role: "user" as const, text: msg }];
+    setChatMessages(updated);
     setChatInput("");
-    setTimeout(() => {
-      setChatMessages((prev) => [...prev, { role: "bot", text: getAIResponse(msg) }]);
-    }, 600);
+    try {
+      const res = await fetch("/api/v1/design/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, history: chatMessages }),
+      });
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, { role: "bot", text: data.reply ?? "Desculpe, houve um erro." }]);
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "bot", text: "Falha na comunicação com o servidor. Tente novamente." }]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const feedProducts = allProducts.length > 0 ? allProducts : [
@@ -171,6 +166,7 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
           { id: "feed" as const, label: "🛍️ Feed do Shopping" },
           { id: "support" as const, label: "🤖 Assistente Técnico 24/7" },
           { id: "billing" as const, label: "📊 Faturamento & Splits" },
+          { id: "design" as const, label: "🎨 Visual da Loja" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -451,6 +447,240 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
           </section>
         </div>
       )}
+
+      {/* Tab 4: Visual da Loja */}
+      {activeTab === "design" && (
+        <DesignTab
+          currentTenant={currentTenant}
+          tenants={tenants}
+          onAddLog={onAddLog}
+          staticMode={staticMode}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── Tab de Design ─── */
+function DesignTab({ currentTenant, tenants, onAddLog, staticMode }: {
+  currentTenant: ControlSpaceProps["currentTenant"];
+  tenants: ControlSpaceProps["tenants"];
+  onAddLog: ControlSpaceProps["onAddLog"];
+  staticMode: boolean;
+}) {
+  const [selectedStore, setSelectedStore] = useState<string>("moda");
+  const [cssOutput, setCssOutput] = useState("");
+  const [promptInputs, setPromptInputs] = useState({ productName: "", category: "", niche: "" });
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [generatedImage, setGeneratedImage] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+
+  const stores = tenants.filter((t) => t.type === "store");
+
+  const store = stores.find((s) => s.id === selectedStore) ?? stores[0];
+  const niche = store?.niche ?? "tech";
+
+  useEffect(() => {
+    if (staticMode) {
+      setCssOutput(`/* Modo Estático — CSS para ${store?.name || selectedStore} (${niche}) */
+:root {
+  --store-bg: ${niche === "luxury" ? "#0B0C10" : niche === "streetwear" ? "#121212" : "#0d1117"};
+  --store-primary: ${niche === "luxury" ? "#66FCF1" : niche === "streetwear" ? "#FF0055" : "#58a6ff"};
+  --store-font: ${niche === "luxury" ? "'Playfair Display', serif" : "'Inter', sans-serif"};
+}`);
+      return;
+    }
+    fetch(`/api/v1/design/store-css/${selectedStore}`)
+      .then((r) => r.text())
+      .then(setCssOutput)
+      .catch(() => setCssOutput("/* Erro ao carregar CSS */"));
+  }, [selectedStore, staticMode, store?.name, niche]);
+
+  const handleBuildPrompt = async () => {
+    if (!promptInputs.productName) return;
+    setGenLoading(true);
+    try {
+      const res = await fetch("/api/v1/design/build-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(promptInputs),
+      });
+      const data = await res.json();
+      setGeneratedPrompt(data.prompt ?? "Erro");
+    } catch {
+      setGeneratedPrompt("Erro de comunicação.");
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    if (!promptInputs.productName) return;
+    setGenLoading(true);
+    try {
+      const res = await fetch("/api/v1/design/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(promptInputs),
+      });
+      const data = await res.json();
+      if (data.image) setGeneratedImage(data.image);
+      setGeneratedPrompt(data.prompt ?? "Erro");
+      if (data.note) onAddLog("info", `Design IA: ${data.note}`);
+    } catch {
+      setGeneratedPrompt("Erro de comunicação.");
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Seletor de Loja */}
+      <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">
+        <h2 className="text-sm md:text-base font-bold text-white mb-4 flex items-center gap-2">
+          🎨 Motor de Design Dinâmico
+        </h2>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {stores.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSelectedStore(s.id)}
+              className={`text-xs font-mono px-3 py-1.5 rounded-lg border transition-colors ${
+                selectedStore === s.id
+                  ? "border-[#4f46e5] bg-[#4f46e5]/20 text-white"
+                  : "border-[#1e293b] text-slate-400 hover:text-white"
+              }`}
+            >
+              {s.name} ({s.niche ?? "sem nicho"})
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Preview Visual */}
+          <div className="bg-[#0b0f19] border border-[#1e293b] rounded-lg p-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 font-mono">Pré-visualização</h3>
+            <div
+              className="rounded-lg p-4"
+              style={{
+                background: niche === "luxury" ? "#0B0C10" : niche === "streetwear" ? "#121212" : "#0d1117",
+                border: "1px solid " + (niche === "luxury" ? "#1F2937" : "#21262D"),
+                fontFamily: niche === "luxury" ? "'Playfair Display', serif" : "'Inter', sans-serif",
+              }}
+            >
+              <h3 style={{ color: niche === "luxury" ? "#66FCF1" : niche === "streetwear" ? "#FF0055" : "#58a6ff" }} className="text-sm font-bold mb-2">
+                {store?.name ?? "Loja"}
+              </h3>
+              <p className="text-[11px]" style={{ color: niche === "luxury" ? "#94A3B8" : "#8B949E" }}>
+                {store?.tagline ?? ""}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="h-8 rounded" style={{ background: niche === "luxury" ? "#14151A" : "#161B22", border: "1px solid " + (niche === "luxury" ? "#1F2937" : "#21262D") }} />
+                <div className="h-8 rounded" style={{ background: niche === "luxury" ? "#14151A" : "#161B22", border: "1px solid " + (niche === "luxury" ? "#1F2937" : "#21262D") }} />
+              </div>
+            </div>
+          </div>
+
+          {/* CSS Gerado */}
+          <div className="bg-[#0b0f19] border border-[#1e293b] rounded-lg p-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 font-mono">CSS Personalizado</h3>
+            <pre className="text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">
+              {cssOutput || "A carregar..."}
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      {/* Gerador de Prompts / Imagens */}
+      <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">
+        <h2 className="text-sm md:text-base font-bold text-white mb-4 flex items-center gap-2">
+          🖼️ Gerador de Imagens com IA
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <input
+            type="text"
+            value={promptInputs.productName}
+            onChange={(e) => setPromptInputs((p) => ({ ...p, productName: e.target.value }))}
+            placeholder="Nome do produto"
+            className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#4f46e5] placeholder:text-slate-500"
+          />
+          <input
+            type="text"
+            value={promptInputs.category}
+            onChange={(e) => setPromptInputs((p) => ({ ...p, category: e.target.value }))}
+            placeholder="Categoria (ex: Casacos, Calçados)"
+            className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#4f46e5] placeholder:text-slate-500"
+          />
+          <select
+            value={promptInputs.niche}
+            onChange={(e) => setPromptInputs((p) => ({ ...p, niche: e.target.value }))}
+            className="w-full bg-[#0b0f19] border border-[#1e293b] rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#4f46e5]"
+          >
+            <option value="">Nichos automático</option>
+            <option value="luxury">Luxo</option>
+            <option value="tech">Tecnologia</option>
+            <option value="streetwear">Streetwear</option>
+          </select>
+        </div>
+
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={handleBuildPrompt}
+            disabled={genLoading || !promptInputs.productName}
+            className="bg-[#1e293b] hover:bg-[#2a3a4f] text-xs font-bold px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-30"
+          >
+            {genLoading ? "A processar..." : "Construir Prompt"}
+          </button>
+          <button
+            onClick={handleGenerateImage}
+            disabled={genLoading || !promptInputs.productName}
+            className="bg-[#4f46e5] hover:bg-[#3730a3] text-xs font-bold px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-30"
+          >
+            {genLoading ? "A gerar..." : "Gerar Imagem 🎨"}
+          </button>
+        </div>
+
+        {generatedPrompt && (
+          <div className="bg-[#0b0f19] border border-[#1e293b] rounded-lg p-3 mb-4">
+            <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-mono">Prompt Gerado</h3>
+            <p className="text-[11px] text-slate-300 font-mono leading-relaxed">{generatedPrompt}</p>
+          </div>
+        )}
+
+        {generatedImage && (
+          <div className="border border-[#1e293b] rounded-lg overflow-hidden max-w-sm">
+            <img src={generatedImage} alt="Imagem gerada por IA" className="w-full" />
+          </div>
+        )}
+      </section>
+
+      {/* Tabela de Arquétipos */}
+      <section className="bg-[#131a26] border border-[#1e293b] rounded-xl p-5 md:p-6">
+        <h2 className="text-sm md:text-base font-bold text-white mb-4">Arquétipos de Design</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { name: "Luxury", niche: "luxury", bg: "#0B0C10", primary: "#66FCF1", font: "Playfair Display" },
+            { name: "Technology", niche: "tech", bg: "#0d1117", primary: "#58a6ff", font: "Inter" },
+            { name: "Streetwear", niche: "streetwear", bg: "#121212", primary: "#FF0055", font: "Impact" },
+          ].map((a) => (
+            <div key={a.niche} className="bg-[#0b0f19] border border-[#1e293b] rounded-lg p-4" style={{ borderTop: `3px solid ${a.primary}` }}>
+              <h3 className="text-sm font-bold text-white mb-2" style={{ fontFamily: a.font }}>{a.name}</h3>
+              <div className="space-y-1.5 text-[10px] font-mono text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded" style={{ background: a.bg, border: "1px solid #333" }} />
+                  <span>{a.bg}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded" style={{ background: a.primary }} />
+                  <span>{a.primary}</span>
+                </div>
+                <div className="text-slate-500">Fonte: {a.font}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
