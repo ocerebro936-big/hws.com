@@ -38,6 +38,7 @@ const STATIC_TENANTS = [
     plan: "Pro",
     accumulatedSales: 125000,
     niche: "luxury",
+    propertyType: "store_rental",
     products: [
       { id: 1, name: "Casaco Slim Fit Tailored", price: "4.500 MT", category: "Casacos", imageUrl: "https://picsum.photos/seed/casaco-slim/400/400" },
       { id: 2, name: "Bota Couro Urban Premium", price: "6.200 MT", category: "Calçados", imageUrl: "https://picsum.photos/seed/bota-couro/400/400" },
@@ -63,6 +64,7 @@ const STATIC_TENANTS = [
     plan: "Starter",
     accumulatedSales: 42000,
     niche: "tech",
+    propertyType: "banca",
     products: [
       { id: 1, name: "Auriculares Wireless Pro ANC", price: "2.100 MT", category: "Áudio", imageUrl: "https://picsum.photos/seed/auriculares-anc/400/400" },
       { id: 2, name: "Carregador de Indução Rápido 50W", price: "1.500 MT", category: "Energia", imageUrl: "https://picsum.photos/seed/carregador-induçao/400/400" },

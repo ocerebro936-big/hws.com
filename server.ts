@@ -24,6 +24,7 @@ import designRoutes from "./src/server/routes/design";
 import userRoutes from "./src/server/routes/users";
 import storeRoutes from "./src/server/routes/stores";
 import paymentRoutes from "./src/server/routes/payments";
+import receiptRoutes from "./src/server/routes/receipts";
 import { tenantResolver } from "./src/server/middleware/tenantResolver";
 import { initDatabase, closeDb } from "./src/server/db";
 
@@ -216,6 +217,7 @@ Object.assign(database, {
     customDomain: null,
     plan: "Enterprise",
     accumulatedSales: 167000,
+    propertyType: "corporate",
     products: []
   },
   "moda.hws.com": {
@@ -237,6 +239,7 @@ Object.assign(database, {
     plan: "Pro",
     accumulatedSales: 125000,
     niche: "luxury",
+    propertyType: "store_rental",
     latitude: -25.9685,
     longitude: 32.5750,
     products: [
@@ -264,6 +267,7 @@ Object.assign(database, {
     plan: "Starter",
     accumulatedSales: 42000,
     niche: "tech",
+    propertyType: "banca",
     latitude: -25.9780,
     longitude: 32.5900,
     products: [
@@ -1243,6 +1247,7 @@ async function startServer() {
   app.use("/api/v1/users", userRoutes);
   app.use("/api/v1/stores", storeRoutes);
   app.use("/api/v1/payments", paymentRoutes);
+  app.use("/api/v1/receipts", receiptRoutes);
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // Tenant resolver (renderiza loja SSR para subdomínios/domínios externos)

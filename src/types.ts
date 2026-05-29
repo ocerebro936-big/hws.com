@@ -37,6 +37,7 @@ export interface Tenant {
   plan?: 'Starter' | 'Pro' | 'Enterprise';
   accumulatedSales?: number; // accumulated revenue in MT digits
   niche?: 'luxury' | 'tech' | 'streetwear';
+  propertyType?: 'banca' | 'store_rental' | 'store_sale' | 'corporate';
 }
 
 export interface LogEntry {

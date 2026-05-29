@@ -3,57 +3,90 @@ import RegisterModal from "./RegisterModal";
 
 const PLANS = [
   {
-    id: "HWS_STARTER",
-    nome: "HWS Starter",
-    preco: "1.500 MT",
+    id: "HWS_BANCA",
+    tipo: "banca",
+    nome: "Banca do Mercado",
+    preco: "500 MT",
     periodo: "/mês",
-    descricao: "Perfeito para começar a vender online com uma vitrine profissional.",
+    descricao: "Micro-negócio digital no mercado comum do Hub. Subdomínio fixo e trancado.",
     destaque: false,
+    cor: "bg-emerald-600/10 border-emerald-500/30",
+    badge: "🪙 Micro",
     recursos: [
-      "Subdomínio hws.com",
-      "Até 50 produtos",
-      "5% comissão por venda",
+      "Subdomínio fixo mercado.hws.com/banca-nome",
+      "Até 20 produtos",
+      "7% comissão por venda",
       "Tema Clean responsivo",
       "Suporte por e-mail",
-      "Checkout Stripe integrado",
+      "Checkout M-Pesa + Stripe",
     ],
-    cta: "Começar Grátis",
+    cta: "Alugar Banca",
   },
   {
-    id: "HWS_PRO",
-    nome: "HWS Pro Workspace",
+    id: "HWS_LOJA_RENTAL",
+    tipo: "store_rental",
+    nome: "Loja Alugável",
     preco: "3.500 MT",
     periodo: "/mês",
-    descricao: "Para lojistas que querem domínio próprio e produtos ilimitados.",
+    descricao: "Loja completa e independente com Super Cards imersivos no feed global.",
     destaque: true,
+    cor: "bg-indigo-600/10 border-indigo-500/40",
+    badge: "🔥 Mais Popular",
     recursos: [
       "Subdomínio + Domínio Próprio (.com, .co.mz)",
       "Produtos ilimitados",
       "3% comissão por venda",
+      "Super Cards imersivos no feed",
       "Temas Cyberpunk & Luxury",
       "Suporte prioritário 24/7",
-      "Checkout Stripe + M-Pesa",
+      "Checkout Stripe + M-Pesa + e-Mola",
       "Domínio .com grátis 1º ano",
     ],
-    cta: "Escolher Pro",
+    cta: "Alugar Loja",
   },
   {
-    id: "HWS_ENTERPRISE",
-    nome: "HWS Enterprise Core",
-    preco: "45.000 MT",
-    periodo: "taxa única",
-    descricao: "Instância isolada com isenção total de comissões.",
+    id: "HWS_LOJA_SALE",
+    tipo: "store_sale",
+    nome: "Loja à Venda",
+    preco: "150.000 MT",
+    periodo: "pagamento único",
+    descricao: "Propriedade digital total. Código, design IA e banco de dados transferidos.",
     destaque: false,
+    cor: "bg-amber-600/10 border-amber-500/30",
+    badge: "🏆 Premium",
     recursos: [
-      "Instância Isolada + Domínio Próprio",
-      "Produtos ilimitados",
-      "0% comissão (isenção total)",
-      "Tema Luxury premium",
-      "Suporte dedicado 24/7",
-      "M-Pesa, e-Mola, Stripe, PayPal",
+      "Domínio Próprio Obrigatório",
+      "Transferência de Propriedade Total",
+      "Design Exclusivo Gerado por IA",
+      "Código-fonte + Banco de Dados",
+      "0% comissão vitalício",
+      "Suporte Dedicado VIP 24/7",
+      "Todos os gateways disponíveis",
       "Manutenção: 1.200 MT/mês após 1 ano",
     ],
-    cta: "Falar com Vendas",
+    cta: "Adquirir Loja",
+  },
+  {
+    id: "HWS_CORPORATE",
+    tipo: "corporate",
+    nome: "Registo Empresarial",
+    preco: "12.000 MT",
+    periodo: "taxa única",
+    descricao: "Página institucional corporativa com recibo oficial com assinatura digital criptográfica.",
+    destaque: false,
+    cor: "bg-cyan-600/10 border-cyan-500/30",
+    badge: "🏛️ Corporativo",
+    recursos: [
+      "Landing Page Institucional",
+      "Subdomínio corporativo hws.com",
+      "Recibo PDF com Assinatura Digital",
+      "Validação de Pagamento Real",
+      "Registo de NUIT opcional",
+      "Suporte por e-mail",
+      "Sem comissões",
+      "Ideal para investidores e parceiros",
+    ],
+    cta: "Registar Empresa",
   },
 ];
 
@@ -151,33 +184,35 @@ export default function LandingPage() {
             <p className="text-sm text-slate-400 text-center mb-10">
               Escolha o plano ideal e comece a vender em minutos.
             </p>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {PLANS.map((plan) => (
                 <div
                   key={plan.id}
-                  className={`relative rounded-2xl border p-6 flex flex-col ${
+                  className={`relative rounded-2xl border p-5 flex flex-col ${
                     plan.destaque
-                      ? "bg-indigo-600/5 border-indigo-500/40 shadow-xl shadow-indigo-600/10"
-                      : "bg-[#131a26] border-[#1e293b]"
+                      ? "bg-indigo-600/5 border-indigo-500/40 shadow-xl shadow-indigo-600/10 scale-[1.02]"
+                      : plan.cor
                   }`}
                 >
-                  {plan.destaque && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-indigo-600 text-white text-[10px] font-mono uppercase tracking-wider rounded-full">
-                      Mais Popular
-                    </div>
-                  )}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-1">{plan.nome}</h3>
-                    <p className="text-xs text-slate-400">{plan.descricao}</p>
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-white text-[10px] font-mono uppercase tracking-wider rounded-full whitespace-nowrap"
+                    style={{
+                      background: plan.destaque ? "#4f46e5" : plan.tipo === "banca" ? "#059669" : plan.tipo === "store_sale" ? "#d97706" : "#06b6d4"
+                    }}
+                  >
+                    {plan.badge}
                   </div>
-                  <div className="mb-6">
-                    <span className="text-3xl font-bold font-display">{plan.preco}</span>
-                    <span className="text-sm text-slate-400 ml-1">{plan.periodo}</span>
+                  <div className="mb-4 mt-2">
+                    <h3 className="text-base font-semibold mb-1">{plan.nome}</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">{plan.descricao}</p>
                   </div>
-                  <ul className="space-y-3 mb-8 flex-1">
+                  <div className="mb-4">
+                    <span className="text-2xl font-bold font-display">{plan.preco}</span>
+                    <span className="text-[11px] text-slate-400 ml-1">{plan.periodo}</span>
+                  </div>
+                  <ul className="space-y-2 mb-6 flex-1">
                     {plan.recursos.map((r) => (
-                      <li key={r} className="flex items-start gap-2 text-sm text-slate-300">
-                        <svg className="w-4 h-4 mt-0.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <li key={r} className="flex items-start gap-2 text-[11px] text-slate-300">
+                        <svg className="w-3.5 h-3.5 mt-0.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         {r}
@@ -186,7 +221,7 @@ export default function LandingPage() {
                   </ul>
                   <button
                     onClick={() => setShowRegister(true)}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                    className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       plan.destaque
                         ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg"
                         : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50"

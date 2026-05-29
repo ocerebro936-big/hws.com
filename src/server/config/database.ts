@@ -31,6 +31,7 @@ export interface Tenant {
   latitude?: number;
   longitude?: number;
   niche?: string;
+  propertyType?: 'banca' | 'store_rental' | 'store_sale' | 'corporate';
 }
 
 export interface DropshippingLink {
