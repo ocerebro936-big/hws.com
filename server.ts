@@ -16,9 +16,7 @@ let stripeClient: Stripe | null = null;
 function getStripe(): Stripe {
   if (!stripeClient) {
     const key = process.env.STRIPE_SECRET_KEY || "sk_sandbox_UvXAXsM1wrTfU4mIHy3w9bC2rTbyGcIx";
-    stripeClient = new Stripe(key, {
-      apiVersion: "2025-02-11-preview" as any,
-    });
+    stripeClient = new Stripe(key);
   }
   return stripeClient;
 }
@@ -87,6 +85,134 @@ const financeiroCorporativo = {
   caixaBancarioPendente: 15000, 
   comissoesRetidasTotal: 84300,
   ivaLiquidadoTotal: 13488
+};
+
+// ==========================================
+// 🛡️ Centralized Payment Credentials Config
+// ==========================================
+const credentials = {
+  nacional: {
+    mpesa: {
+      api_host: process.env.MPESA_API_URL || "https://api.vm.co.mz/ipg/v1x/",
+      service_provider_code: process.env.MPESA_SERVICE_CODE || "898989",
+      api_encrypted_api_key: process.env.MPESA_PUBLIC_KEY || "",
+      initiator_identifier: process.env.MPESA_INITIATOR_ID || "hws_bluewhite"
+    },
+    emola: {
+      api_host: process.env.EMOLA_API_URL || "https://api.emola.movitel.co.mz/v1/payment",
+      merchant_id: process.env.EMOLA_MERCHANT_ID || "HW001",
+      application_id: process.env.EMOLA_APP_ID || "",
+      secret_key: process.env.EMOLA_SECRET_KEY || ""
+    },
+    banco_local_direct: {
+      titular: "Bluewhite Corporation Lda.",
+      nuit: "500123456",
+      nib_bim: process.env.BIM_NIB || "",
+      nib_bci: process.env.BCI_NIB || ""
+    }
+  },
+  internacional: {
+    stripe: {
+      secret_key: process.env.STRIPE_SECRET_KEY || "sk_sandbox_UvXAXsM1wrTfU4mIHy3w9bC2rTbyGcIx",
+      public_key: process.env.STRIPE_PUBLIC_KEY || "pk_test_placeholder",
+      webhook_secret: process.env.STRIPE_WEBHOOK_SECRET || ""
+    },
+    paypal: {
+      client_id: process.env.PAYPAL_CLIENT_ID || "sb",
+      client_secret: process.env.PAYPAL_SECRET || "",
+      mode: process.env.NODE_ENV === 'production' ? 'live' : 'sandbox'
+    }
+  }
+};
+
+// ==========================================
+// 💳 Motor Multi-Gateway (PaymentService)
+// ==========================================
+const paymentService = {
+
+  // 🇲🇿 M-Pesa (Vodacom) - Push STK
+  async processMpesa(orderId: string, phone: string, amount: number) {
+    const payload = {
+      input_ServiceProviderCode: credentials.nacional.mpesa.service_provider_code,
+      input_CustomerMSISDN: phone.replace(/[^0-9]/g, ""),
+      input_Amount: amount.toFixed(2),
+      input_TransactionReference: orderId,
+      input_ThirdPartyReference: `HWS-${orderId}`
+    };
+    // Simulação - em produção faria POST com token bearer
+    console.log(`[MPESA] Push STK p/ ${phone}: ${amount} MZN (ref: ${orderId})`);
+    return {
+      success: true,
+      status: "PROCESSING",
+      gateway: "MPESA_C2B",
+      reference: orderId,
+      message: "Pedido de pagamento enviado ao telemóvel. Introduza o PIN M-Pesa.",
+      payload
+    };
+  },
+
+  // 🇲🇿 e-Mola (Movitel) - Push STK
+  async processEmola(orderId: string, phone: string, amount: number) {
+    const payload = {
+      merchant_id: credentials.nacional.emola.merchant_id,
+      customer_phone: phone.replace(/[^0-9]/g, ""),
+      amount: amount.toFixed(2),
+      transaction_id: orderId,
+      callback_url: `${process.env.APP_URL || "http://localhost:3000"}/api/v1/hws/payments/emola/callback`
+    };
+    console.log(`[EMOLA] Push STK p/ ${phone}: ${amount} MZN (ref: ${orderId})`);
+    return {
+      success: true,
+      status: "PROCESSING",
+      gateway: "EMOLA_C2B",
+      reference: orderId,
+      message: "Pedido de pagamento enviado ao telemóvel. Confirme no e-Mola.",
+      payload
+    };
+  },
+
+  // 🌐 Stripe - PaymentIntent (cartões globais)
+  async processStripe(amount: number, currency: string, metadata: Record<string, string>) {
+    const stripe = getStripe();
+    const amountCents = Math.round(amount * 100);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: currency,
+      payment_method_types: ['card'],
+      metadata: {
+        hws_tenant: metadata.store_host || "hws",
+        ...metadata
+      }
+    });
+    console.log(`[STRIPE] PaymentIntent ${paymentIntent.id}: ${amount} ${currency.toUpperCase()}`);
+    return {
+      success: true,
+      status: "AWAITING_AUTHENTICATION",
+      gateway: "STRIPE",
+      client_secret: paymentIntent.client_secret,
+      transaction_id: paymentIntent.id
+    };
+  },
+
+  // 🌐 PayPal - Order (cria ordem de pagamento)
+  async processPaypal(orderId: string, amount: number, currency: string, description: string) {
+    const accessToken = Buffer.from(
+      `${credentials.internacional.paypal.client_id}:${credentials.internacional.paypal.client_secret}`
+    ).toString("base64");
+    const baseUrl = credentials.internacional.paypal.mode === 'live'
+      ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
+
+    // Simulação: em produção faria POST /v2/checkout/orders
+    console.log(`[PAYPAL] Order created: ${amount} ${currency.toUpperCase()} - ${description}`);
+    return {
+      success: true,
+      status: "AWAITING_PAYER_ACTION",
+      gateway: "PAYPAL",
+      order_id: `PAYPAL-${Date.now()}`,
+      approval_url: `${baseUrl}/checkoutnow?token=HWS_SIMULATED_${orderId}`,
+      message: "Redirecionando para o portal PayPal..."
+    };
+  }
 };
 
 const app = express();
@@ -1078,6 +1204,116 @@ app.post("/api/v1/hws/dropshipping/checkout", (req, res) => {
 });
 
 // ==========================================
+// 💳 CHECKOUT UNIFICADO MULTI-GATEWAY
+// Processa pagamentos nacionais e internacionais
+// ==========================================
+
+// POST /api/v1/hws/checkout/process
+// Rota única que orquestra o gateway conforme escopo e método
+app.post("/api/v1/hws/checkout/process", async (req, res) => {
+  const { order_id, total_amount, metodo_escolhido, client_phone, scope, store_metadata, currency } = req.body;
+
+  if (!order_id || !total_amount || !metodo_escolhido || !scope) {
+    return res.status(400).json({
+      success: false,
+      error: "Campos obrigatórios: order_id, total_amount, metodo_escolhido, scope"
+    });
+  }
+
+  try {
+    let result;
+
+    if (scope === "NACIONAL") {
+      if (metodo_escolhido === "MPESA") {
+        if (!client_phone) {
+          return res.status(400).json({ success: false, error: "Telefone obrigatório para M-Pesa." });
+        }
+        result = await paymentService.processMpesa(order_id, client_phone, total_amount);
+      } else if (metodo_escolhido === "EMOLA") {
+        if (!client_phone) {
+          return res.status(400).json({ success: false, error: "Telefone obrigatório para e-Mola." });
+        }
+        result = await paymentService.processEmola(order_id, client_phone, total_amount);
+      } else {
+        return res.status(400).json({ success: false, error: "Método nacional inválido. Use: MPESA, EMOLA" });
+      }
+    } else if (scope === "INTERNACIONAL") {
+      if (metodo_escolhido === "STRIPE") {
+        result = await paymentService.processStripe(total_amount, currency || "usd", store_metadata || {});
+      } else if (metodo_escolhido === "PAYPAL") {
+        result = await paymentService.processPaypal(order_id, total_amount, currency || "usd",
+          store_metadata?.description || "Compra HWS");
+      } else {
+        return res.status(400).json({ success: false, error: "Método internacional inválido. Use: STRIPE, PAYPAL" });
+      }
+    } else {
+      return res.status(400).json({ success: false, error: "Scope inválido. Use: NACIONAL, INTERNACIONAL" });
+    }
+
+    // Regista a transação no financeiro corporativo
+    financeiroCorporativo.caixaBancarioPendente += total_amount;
+
+    res.json({
+      success: true,
+      scope,
+      method: metodo_escolhido,
+      order_id,
+      transaction: result
+    });
+
+  } catch (error: any) {
+    console.error(`[CHECKOUT ERROR] ${error.message}`);
+    res.status(500).json({
+      success: false,
+      error: `Falha no processamento: ${error.message}`,
+      gateway: metodo_escolhido
+    });
+  }
+});
+
+// GET /api/v1/hws/payments/methods
+// Lista métodos de pagamento disponíveis por escopo
+app.get("/api/v1/hws/payments/methods", (_req, res) => {
+  res.json({
+    success: true,
+    entidade: "Bluewhite Corporation Lda.",
+    nacional: [
+      {
+        id: "MPESA",
+        nome: "M-Pesa (Vodacom)",
+        moeda: "MZN",
+        taxa: "2.5% por transação",
+        icon: "https://www.vodacom.co.mz/sites/default/files/mpesa-icon.png",
+        disponivel: true
+      },
+      {
+        id: "EMOLA",
+        nome: "e-Mola (Movitel)",
+        moeda: "MZN",
+        taxa: "2.0% por transação",
+        disponivel: true
+      }
+    ],
+    internacional: [
+      {
+        id: "STRIPE",
+        nome: "Cartões (Visa/Mastercard/Apple Pay/Google Pay)",
+        moeda: "USD, EUR, ZAR",
+        taxa: "2.9% + 0.30 USD",
+        disponivel: true
+      },
+      {
+        id: "PAYPAL",
+        nome: "PayPal Commerce",
+        moeda: "USD, EUR",
+        taxa: "2.99% + 0.49 USD",
+        disponivel: true
+      }
+    ]
+  });
+});
+
+// ==========================================
 // 🩺 Health Check / Readiness Probe
 // ==========================================
 app.get("/health", (_req, res) => {
@@ -1111,6 +1347,8 @@ async function startServer() {
     console.log(`🌐 Mapeamentos locais: hws.com, moda.hws.com, tech.hws.com`);
     console.log(`🔒 On-Demand TLS: /api/v1/hws/domains/verify | /api/v1/hws/domains/validate`);
     console.log(`📦 Dropshipping: /api/v1/hws/dropshipping/import | /checkout | /links/:storeId`);
+    console.log(`💳 Checkout: /api/v1/hws/checkout/process (MPESA | EMOLA | STRIPE | PAYPAL)`);
+    console.log(`💳 Métodos: /api/v1/hws/payments/methods`);
     console.log(`🩺 Health: /health`);
   });
 
