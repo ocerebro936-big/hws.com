@@ -69,6 +69,42 @@ const STATIC_TENANTS = [
   }
 ];
 
+export const STATIC_PLANS = [
+  {
+    id: "HWS_STARTER",
+    nome: "HWS Starter",
+    mensalidade: "1.500 MT",
+    dominio: "Subdomínio hws.com",
+    produtos: "Até 50",
+    comissao: "5% por venda",
+    temas: ["Clean"],
+  },
+  {
+    id: "HWS_PRO",
+    nome: "HWS Pro Workspace",
+    mensalidade: "3.500 MT",
+    dominio: "Subdomínio + Domínio Próprio",
+    produtos: "Ilimitados",
+    comissao: "3% por venda",
+    temas: ["Cyberpunk", "Luxury"],
+  },
+  {
+    id: "HWS_ENTERPRISE",
+    nome: "HWS Enterprise Core",
+    mensalidade: "45.000 MT (taxa única)",
+    dominio: "Instância Isolada + Domínio Próprio",
+    produtos: "Ilimitados",
+    comissao: "0% (isenção total)",
+    temas: ["Luxury"],
+    manutencao: "1.200 MT/mês após 1 ano",
+  },
+];
+
+export const STATIC_DOMAINS = [
+  { tipo: "Internacional (.com, .net, .org)", preco: "1.200 MT/ano" },
+  { tipo: "Nacional (.co.mz, .mz)", preco: "2.500 MT/ano" },
+];
+
 const isStatic = !window.location.host.includes("localhost") && !window.location.host.includes("127.0.0.1");
 
 export function getStaticTenants() {

@@ -15,6 +15,7 @@ import { database, financeiroCorporativo, registrarMockDns, dropshippingDB, pend
 import type { Product, Tenant, DropshippingLink } from "./src/server/config/database";
 import webhookRoutes from "./src/server/routes/webhooks";
 import checkoutRoutes from "./src/server/routes/checkout";
+import subscriptionRoutes from "./src/server/routes/subscriptions";
 import { initDatabase, closeDb } from "./src/server/db";
 
 dotenv.config();
@@ -1191,6 +1192,7 @@ async function startServer() {
   // Mount modular routes (ANTES do Vite middleware)
   app.use("/api/v1/hws/checkout", checkoutRoutes);
   app.use("/api/v1/hws/webhooks", webhookRoutes);
+  app.use("/api/v1/hws/subscriptions", subscriptionRoutes);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -1212,6 +1214,7 @@ async function startServer() {
     console.log(`🔒 On-Demand TLS: /api/v1/hws/domains/verify | /api/v1/hws/domains/validate`);
     console.log(`📦 Dropshipping: /api/v1/hws/dropshipping/import | /checkout | /links/:storeId`);
     console.log(`💳 Checkout: /api/v1/hws/checkout/process (MPESA | EMOLA | STRIPE | PAYPAL)`);
+    console.log(`📋 Subscrições: /api/v1/hws/subscriptions/create | /plans`);
     console.log(`💳 Métodos: /api/v1/hws/payments/methods`);
     console.log(`🔔 Webhook M-Pesa: POST /api/v1/hws/payments/mpesa/callback`);
     console.log(`🔔 Webhook Stripe: POST /api/v1/hws/payments/stripe/webhook`);
