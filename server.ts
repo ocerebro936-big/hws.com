@@ -215,7 +215,101 @@ const paymentService = {
   }
 };
 
+// ==========================================
+// 📋 Pending Orders (awaiting webhook confirm)
+// ==========================================
+interface PendingOrder {
+  orderId: string;
+  tenantId: string;
+  amount: number;
+  currency: string;
+  gateway: string;
+  scope: string;
+  status: "PENDING" | "PAID" | "FAILED";
+  metadata: Record<string, string>;
+  createdAt: string;
+}
+
+const pendingOrders = new Map<string, PendingOrder>();
+
 const app = express();
+
+// ==========================================
+// 🌐 Stripe Webhook (precisa raw body)
+// Deve vir antes do express.json() global
+// ==========================================
+app.post("/api/v1/hws/payments/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    let event: any;
+
+    try {
+      const stripe = getStripe();
+      const webhookSecret = credentials.internacional.stripe.webhook_secret;
+
+      if (webhookSecret) {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } else {
+        // Fallback para simulação/desenvolvimento sem webhook secret
+        event = JSON.parse(req.body.toString());
+      }
+
+      console.log(`[WEBHOOK STRIPE] Evento recebido: ${event.type}`);
+
+      if (event.type === "payment_intent.succeeded") {
+        const pi = event.data.object;
+        const amount = pi.amount / 100;
+        const metadata = pi.metadata || {};
+
+        console.log(`[FINANCEIRO GLOBAL] Pagamento de $${amount} confirmado (${pi.id})`);
+
+        // Split triplo automático
+        const commissionRate = 0.03;
+        const ivaRate = 0.16;
+        const fee = amount * commissionRate;
+        const netAmount = amount - fee;
+        const ivaAmount = fee * ivaRate;
+        const amountMzn = Math.round(amount * 64); // Conversão USD → MZN (câmbio simulado)
+
+        financeiroCorporativo.caixaBancarioPendente += amountMzn;
+        financeiroCorporativo.comissoesRetidasTotal += Math.round(fee * 64);
+        financeiroCorporativo.ivaLiquidadoTotal += Math.round(ivaAmount * 64);
+
+        // Atualiza a ordem pendente se existir
+        const orderId = pi.id;
+        if (pendingOrders.has(orderId)) {
+          const order = pendingOrders.get(orderId)!;
+          order.status = "PAID";
+
+          const tenant = Object.values(database).find(t => t.id === order.tenantId);
+          if (tenant) {
+            tenant.accumulatedSales = (tenant.accumulatedSales || 0) + amountMzn;
+          }
+        }
+
+        console.log(`[SPLIT STRIPE] Líquido lojista: $${netAmount.toFixed(2)} | Comissão Bluewhite: $${fee.toFixed(2)} | IVA: $${ivaAmount.toFixed(2)}`);
+
+        return res.status(200).json({ received: true });
+      }
+
+      if (event.type === "payment_intent.payment_failed") {
+        const pi = event.data.object;
+        if (pendingOrders.has(pi.id)) {
+          pendingOrders.get(pi.id)!.status = "FAILED";
+        }
+        console.log(`[STRIPE] Pagamento falhou: ${pi.id}`);
+        return res.status(200).json({ received: true });
+      }
+
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error(`[WEBHOOK STRIPE ERROR] ${err.message}`);
+      res.status(400).json({ error: err.message });
+    }
+  }
+);
+
 app.use(express.json());
 
 const PORT = 3000;
@@ -1253,6 +1347,20 @@ app.post("/api/v1/hws/checkout/process", async (req, res) => {
     // Regista a transação no financeiro corporativo
     financeiroCorporativo.caixaBancarioPendente += total_amount;
 
+    // Cria ordem pendente (aguardando confirmação do webhook)
+    const pendingId = result.transaction_id || result.reference || order_id;
+    pendingOrders.set(pendingId, {
+      orderId: order_id,
+      tenantId: store_metadata?.store_host || "hws",
+      amount: total_amount,
+      currency: currency || "MZN",
+      gateway: metodo_escolhido,
+      scope,
+      status: "PENDING",
+      metadata: store_metadata || {},
+      createdAt: new Date().toISOString()
+    });
+
     res.json({
       success: true,
       scope,
@@ -1314,6 +1422,92 @@ app.get("/api/v1/hws/payments/methods", (_req, res) => {
 });
 
 // ==========================================
+// 🇲🇿 WEBHOOK M-PESA (Retorno da Vodacom IPG)
+// A Vodacom chama este endpoint quando o cliente
+// confirma o PIN no telemóvel
+// ==========================================
+app.post("/api/v1/hws/payments/mpesa/callback", (req, res) => {
+  const {
+    output_ResponseCode,
+    output_ResponseDesc,
+    output_TransactionID,
+    input_TransactionReference,
+    input_ThirdPartyReference
+  } = req.body;
+
+  console.log(`[WEBHOOK M-PESA] Callback recebido. Ref: ${input_TransactionReference || input_ThirdPartyReference}`);
+
+  // "INS-0" = sucesso no protocolo M-Pesa (Vodacom)
+  if (output_ResponseCode === "INS-0" || output_ResponseCode === "0") {
+    const ref = input_TransactionReference || input_ThirdPartyReference;
+
+    // Atualiza ordem pendente
+    if (ref && pendingOrders.has(ref)) {
+      const order = pendingOrders.get(ref)!;
+      order.status = "PAID";
+
+      // Split triplo automático (Moçambique - MZN)
+      const val = order.amount;
+      const commissionRate = 0.025; // 2.5% taxa M-Pesa + Bluewhite
+      const ivaRate = 0.16;
+      const fee = Math.round(val * commissionRate);
+      const netAmount = val - fee;
+      const ivaAmount = Math.round(fee * ivaRate);
+
+      financeiroCorporativo.caixaBancarioPendente += netAmount;
+      financeiroCorporativo.comissoesRetidasTotal += fee;
+      financeiroCorporativo.ivaLiquidadoTotal += ivaAmount;
+
+      // Atualiza vendas do lojista
+      const tenant = order.metadata?.store_host
+        ? Object.values(database).find(t =>
+            t.id === order.metadata.store_host || t.domain === order.metadata.store_host
+          )
+        : null;
+      if (tenant) {
+        tenant.accumulatedSales = (tenant.accumulatedSales || 0) + val;
+      }
+
+      console.log(`[SPLIT M-PESA] Ordem ${ref}: ${val} MZN pago`);
+      console.log(`  ├── Lojista: ${netAmount} MZN`);
+      console.log(`  ├── Comissão Bluewhite: ${fee} MZN`);
+      console.log(`  └── IVA (${ivaRate * 100}%): ${ivaAmount} MZN`);
+    }
+
+    return res.status(200).json({
+      status: "SUCCESS",
+      message: "Callback M-Pesa processado. Split executado.",
+      output_TransactionID
+    });
+  }
+
+  // Transação falhou ou cancelada pelo cliente
+  const failedRef = input_TransactionReference || input_ThirdPartyReference;
+  if (failedRef && pendingOrders.has(failedRef)) {
+    pendingOrders.get(failedRef)!.status = "FAILED";
+  }
+
+  console.log(`[M-PESA] Transação não concluída: ${output_ResponseDesc || output_ResponseCode}`);
+  return res.status(200).json({
+    status: "FAILED",
+    message: output_ResponseDesc || "Transação não concluída pelo cliente."
+  });
+});
+
+// GET /api/v1/hws/payments/orders/:id
+// Consulta o estado de uma ordem de pagamento
+app.get("/api/v1/hws/payments/orders/:id", (req, res) => {
+  const id = req.params.id;
+  const order = pendingOrders.get(id) || Array.from(pendingOrders.values()).find(o => o.orderId === id);
+
+  if (!order) {
+    return res.status(404).json({ success: false, error: "Ordem não encontrada." });
+  }
+
+  res.json({ success: true, order });
+});
+
+// ==========================================
 // 🩺 Health Check / Readiness Probe
 // ==========================================
 app.get("/health", (_req, res) => {
@@ -1349,6 +1543,9 @@ async function startServer() {
     console.log(`📦 Dropshipping: /api/v1/hws/dropshipping/import | /checkout | /links/:storeId`);
     console.log(`💳 Checkout: /api/v1/hws/checkout/process (MPESA | EMOLA | STRIPE | PAYPAL)`);
     console.log(`💳 Métodos: /api/v1/hws/payments/methods`);
+    console.log(`🔔 Webhook M-Pesa: POST /api/v1/hws/payments/mpesa/callback`);
+    console.log(`🔔 Webhook Stripe: POST /api/v1/hws/payments/stripe/webhook`);
+    console.log(`📋 Estado Ordens: GET /api/v1/hws/payments/orders/:id`);
     console.log(`🩺 Health: /health`);
   });
 
