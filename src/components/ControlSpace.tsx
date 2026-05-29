@@ -113,6 +113,24 @@ export default function ControlSpace({ tenants, currentTenant, onSwitchTenant, o
     const updated = [...chatMessages, { role: "user" as const, text: msg }];
     setChatMessages(updated);
     setChatInput("");
+
+    /* Fallback local para modo estático (GitHub Pages) */
+    if (staticMode) {
+      await new Promise((r) => setTimeout(r, 600));
+      const lower = msg.toLowerCase();
+      let reply = "Olá! Sou o assistente de negócios da Bluewhite Corporation. Posso ajudar com DNS, temas, checkout, faturamento, domínios ou estratégias para escalar a sua loja. Digite a sua dúvida.";
+      if (lower.includes("dns")) reply = "Para configurar o seu DNS, aponte o registo A para o IP do servidor dedicado. O HWS valida o domínio automaticamente via API Caddy. Aguarde 5-10 min para propagação.";
+      else if (lower.includes("tema") || lower.includes("aparência")) reply = "Pode personalizar o tema na sua loja. Temas disponíveis: Luxury (escuro elegante), Tech (cyberpunk), Streetwear (urbano). Aceda a Configurações > Aparência no seu painel.";
+      else if (lower.includes("checkout") || lower.includes("pagamento") || lower.includes("erro")) reply = "Erros de checkout podem dever-se a: 1) Webhook não configurado no gateway 2) Saldo insuficiente 3) Comissão pendente. Verifique os logs em /api/v1/hws/webhooks.";
+      else if (lower.includes("fatura") || lower.includes("saldo") || lower.includes("levantamento")) reply = "O seu saldo disponível é calculado após dedução da comissão HWS (3%) e IVA (16%). O levantamento pode ser solicitado para conta BIM ou e-Mola.";
+      else if (lower.includes("domínio") || lower.includes("dominio") || lower.includes(".com") || lower.includes(".mz")) reply = "Domínios .com: 1.200 MT/ano | .co.mz: 2.500 MT/ano. A ativação inclui SSL automático via Caddy e proxy reverso.";
+      else if (lower.includes("milhão") || lower.includes("milhao") || lower.includes("faturar") || lower.includes("crescer") || lower.includes("escalar")) reply = "Para faturar 1 milhão de MT no ano: precisa de 83.333 MT/mês ou ~2.778 MT/dia. Com uma margem de 30%, precisa de ~9.260 MT em vendas diárias. Vamos criar um plano de 3 passos personalizado para a sua loja?";
+      else if (lower.includes("oi") || lower.includes("olá") || lower.includes("ola")) reply = "Olá! Como posso ajudar o seu negócio hoje? Pode perguntar sobre criação de loja, domínios, checkout, estratégias de venda ou suporte técnico HWS.";
+      setChatMessages((prev) => [...prev, { role: "bot", text: reply }]);
+      setChatLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/v1/design/chat", {
         method: "POST",
