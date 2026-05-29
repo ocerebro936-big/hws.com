@@ -55,7 +55,7 @@ export default function App() {
     if (staticMode) {
       const tenant = getStaticTenant(simTenantId);
       setCurrentTenant(tenant as Tenant);
-      setDetectedVia('Modo Estático (GitHub Pages)');
+      setDetectedVia('Simulando Roteamento Dinâmico Multi-Tenant');
       setDetectedDomain(tenant.domain);
       setOriginalHost(window.location.host);
       addLog('info', `Modo estático: Loja '${tenant.name}' carregada.`);
